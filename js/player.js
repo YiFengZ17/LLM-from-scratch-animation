@@ -17,19 +17,27 @@
 
   const E = window.Engine;
   const H = window.Highlight;
+  const TH = window.Themes;
   const $ = (id) => document.getElementById(id);
 
   const el = {
     app: $('app'),
     chapter: $('chapter-name'),
-    count: $('step-count'),
+    progress: $('progress'),
     outline: $('outline'),
     sidebar: $('sidebar'),
     scrim: $('scrim'),
     btnOutline: $('btn-outline'),
     btnExplorer: $('btn-explorer'),
+    btnNotes: $('btn-notes'),
+    btnMode: $('btn-mode'),
     tabs: $('tabs'),
+    crumbs: $('crumbs'),
+    codeWrap: $('code-wrap'),
     code: $('code'),
+    minimap: $('minimap'),
+    miniCanvas: $('minimap-canvas'),
+    miniView: $('minimap-view'),
     doc: $('doc'),
     terminal: $('terminal'),
     termBody: $('term-body'),
@@ -38,6 +46,7 @@
     narrCount: $('narr-count'),
     narrTitle: $('narr-title'),
     narrBody: $('narr-body'),
+    phases: $('phases'),
     back: $('btn-back'),
     pause: $('btn-pause'),
     go: $('btn-go'),
@@ -45,8 +54,13 @@
     fill: $('btn-fill'),
     statusFile: $('status-file'),
     statusPos: $('status-pos'),
+    statusLang: $('status-lang'),
     speed: $('btn-speed'),
     auto: $('btn-auto'),
+    themeName: $('btn-theme-name'),
+    quick: $('quick'),
+    quickList: $('quick-list'),
+    quickMode: $('quick-mode'),
   };
 
   const SPEEDS = [0.5, 0.75, 1, 1.5, 2];
@@ -65,6 +79,7 @@
   };
   const SIMPLE_MAX_CHARS = 60; // 旁白不超过这么多字、且没有引用和公式，算「短而简单」
   const LONG_CHARS = 120;
+
   const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const narrow = window.matchMedia ? window.matchMedia('(max-width: 1120px)') : { matches: false };
 
@@ -97,6 +112,7 @@
   let peek = null; // 读者点了别的标签页，临时查看
   let lineCache = [];
   let docShown = null;
+  let mini = null; // 小地图上一次画的内容，换主题或改窗口大小时重画
 
   /* ------------------------------------------------------------ 小工具 */
 
@@ -142,6 +158,10 @@
     return Math.min(PACE.max, PACE.normal + extra * PACE.extra);
   }
 
+  const FILE_ICON =
+    '<svg class="file-icon%CLS%" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 2H4v12h8V4.500L9.500 2z"/><path d="M9.500 2v2.500H12"/></svg>';
+  const fileIcon = (name) => FILE_ICON.replace('%CLS%', name === DOC || /\.md$/.test(name) ? ' is-md' : '');
+
   /* ------------------------------------------------- 文字块（旁白与文档共用） */
 
   function codeHTML(src) {
@@ -180,6 +200,25 @@
       return '<pre><code>' + codeHTML(item.code) + '</code></pre>';
     }
 
+    if (item.flow) {
+      const nodes = item.flow.map(
+        (n) => '<li><div class="flow-node' + (n.part ? ' is-part' : '') + '"><b>' + esc(n.label) + '</b><small>' + esc(n.sub) + '</small></div></li>'
+      );
+      return '<ol class="flow">' + nodes.join('') + '</ol>';
+    }
+
+    if (item.figure === 'pe-heatmap') {
+      return (
+        '<figure class="fig"><div class="fig-plot">' +
+        '<div class="fig-y"><span>pos 0</span><span>' + (PE_ROWS - 1) + '</span></div>' +
+        '<canvas data-fig="pe" width="' + PE_COLS + '" height="' + PE_ROWS + '" role="img" aria-label="位置编码热力图"></canvas>' +
+        '<div class="fig-x"><span>第 0 列</span><span>第 ' + (PE_COLS - 1) + ' 列</span></div></div>' +
+        '<div class="fig-legend"><span>-1</span><i></i><span>+1</span></div>' +
+        (item.note ? '<p class="doc-note">' + md(item.note) + '</p>' : '') +
+        '</figure>'
+      );
+    }
+
     if (item.table) {
       const t = item.table;
       const num = (i) => ((t.num || []).includes(i) ? ' class="num"' : '');
@@ -206,13 +245,42 @@
     return '';
   }
 
+  /* ---------------------------------------------------- 位置编码热力图 */
+
+  const PE_ROWS = 50; // 画前 50 个位置
+  const PE_COLS = 512; // d_model = 512，每一列一个像素
+
+  const hexToRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+
+  // 按论文的公式算出位置表，每个数画成一个像素：正数偏暖色，负数偏冷色，0 是编辑器底色
+  function drawFigures() {
+    const t = TH.current().t;
+    const bg = hexToRgb(t.ed);
+    const warm = hexToRgb(t.warm);
+    const cool = hexToRgb(t.cool);
+    el.doc.querySelectorAll('canvas[data-fig="pe"]').forEach((cv) => {
+      const ctx = cv.getContext('2d');
+      const img = ctx.createImageData(PE_COLS, PE_ROWS);
+      for (let pos = 0; pos < PE_ROWS; pos++) {
+        for (let col = 0; col < PE_COLS; col++) {
+          const w = Math.exp((col - (col % 2)) * (-Math.log(10000) / PE_COLS));
+          const v = col % 2 ? Math.cos(pos * w) : Math.sin(pos * w);
+          const to = v >= 0 ? warm : cool;
+          const a = Math.abs(v);
+          const o = (pos * PE_COLS + col) * 4;
+          for (let k = 0; k < 3; k++) img.data[o + k] = Math.round(bg[k] + (to[k] - bg[k]) * a);
+          img.data[o + 3] = 255;
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+    });
+  }
+
   /* -------------------------------------------------------------- 旁白 */
 
   function renderNarration() {
     const step = steps[index];
-    const count = index + 1 + ' / ' + steps.length;
-    el.narrCount.textContent = count;
-    el.count.textContent = count;
+    el.narrCount.textContent = index + 1 + ' / ' + steps.length;
     el.narrSection.textContent = step.section;
 
     if (step.doc) {
@@ -234,17 +302,22 @@
   /* -------------------------------------------------------------- 目录 */
 
   function buildOutline() {
-    let html = '';
-    let section = null;
+    const groups = [];
     steps.forEach((step, i) => {
-      if (step.section !== section) {
-        if (section !== null) html += '</ol></li>';
-        section = step.section;
-        html += '<li><div class="outline-section">' + esc(section) + '</div><ol>';
-      }
-      html += '<li><button class="outline-step" type="button" data-step="' + i + '">' + esc(step.title) + '</button></li>';
+      const last = groups[groups.length - 1];
+      if (last && last.name === step.section) last.items.push(i);
+      else groups.push({ name: step.section, items: [i] });
     });
-    el.outline.innerHTML = html + '</ol></li>';
+    el.outline.innerHTML = groups
+      .map((g, k) => {
+        const items = g.items.map((i) => '<li><button class="outline-step" type="button" data-step="' + i + '">' + esc(steps[i].title) + '</button></li>');
+        return (
+          '<li><button class="outline-section" type="button" aria-expanded="true" aria-controls="sec-' + k + '">' +
+          esc(g.name) + '<span class="outline-count" data-from="' + g.items[0] + '" data-size="' + g.items.length + '"></span></button>' +
+          '<ol id="sec-' + k + '">' + items.join('') + '</ol></li>'
+        );
+      })
+      .join('');
   }
 
   function renderOutline() {
@@ -253,6 +326,12 @@
       b.classList.toggle('is-seen', i < index);
       if (i === index) {
         b.setAttribute('aria-current', 'step');
+        // 当前页所在的小节如果被折叠了，展开它
+        const list = b.closest('ol');
+        if (list.hidden) {
+          list.hidden = false;
+          list.previousElementSibling.setAttribute('aria-expanded', 'true');
+        }
         // 只在目录自己的滚动区里滚动，不带动整个页面
         const top = b.offsetTop - el.sidebar.offsetTop;
         const view = el.sidebar;
@@ -263,6 +342,12 @@
         b.removeAttribute('aria-current');
       }
     });
+    // 每个小节读完了几页
+    el.outline.querySelectorAll('.outline-count').forEach((c) => {
+      const from = Number(c.dataset.from);
+      const size = Number(c.dataset.size);
+      c.textContent = Math.min(size, Math.max(0, index - from + 1)) + '/' + size;
+    });
   }
 
   function toggleOutline() {
@@ -271,6 +356,7 @@
     } else {
       const closed = el.app.classList.toggle('is-side-closed');
       el.btnExplorer.setAttribute('aria-pressed', String(!closed));
+      drawMinimap();
     }
   }
 
@@ -302,7 +388,7 @@
         if (b === a) continue;
         if (cur === a) out += CURSOR;
         const selected = selA < selB && a >= selA && b <= selB;
-        const cls = (tok.c ? 't-' + tok.c : '') + (selected ? ' sel' : '');
+        const cls = (tok.c && tok.c !== 'pun' ? 't-' + tok.c : '') + (selected ? ' sel' : '');
         const text = esc(tok.t.slice(a - col, b - col));
         out += cls ? '<span class="' + cls.trim() + '">' + text + '</span>' : text;
         a = b;
@@ -316,14 +402,17 @@
   function renderEditor(instant) {
     const name = shownName();
     const isDoc = name === DOC;
-    el.code.hidden = isDoc;
+    el.codeWrap.hidden = isDoc;
     el.doc.hidden = !isDoc;
+    el.btnNotes.setAttribute('aria-pressed', String(isDoc));
     renderTabs(name);
 
     if (isDoc) {
       renderDoc();
-      el.statusFile.textContent = lesson.docName + '（预览）';
-      el.statusPos.textContent = '';
+      renderCrumbs(name, null, 0);
+      el.statusFile.textContent = lesson.docName;
+      el.statusPos.textContent = '预览';
+      el.statusLang.textContent = 'Markdown';
       return;
     }
 
@@ -334,11 +423,26 @@
     const marks = state.marks[name] || [];
     const tokens = H.tokenize(text);
     const rawLines = text.split('\n');
+    const indents = rawLines.map((raw) => raw.length - raw.trimStart().length);
+
+    // 缩进参考线画到哪：空行没有缩进，取上下最近的非空行里较浅的那个，参考线才不会断
+    const guides = indents.slice();
+    for (let i = 0; i < rawLines.length; i++) {
+      if (rawLines[i].trim()) continue;
+      let up = i - 1;
+      let down = i + 1;
+      while (up >= 0 && !rawLines[up].trim()) up--;
+      while (down < rawLines.length && !rawLines[down].trim()) down++;
+      const a = up >= 0 ? indents[up] : 0;
+      const b = down < rawLines.length ? indents[down] : 0;
+      guides[i] = Math.max(indents[i], Math.min(a, b));
+    }
 
     let offset = 0;
     let curLine = 0;
     let curCol = 0;
     const next = [];
+    const flags = [];
 
     for (let i = 0; i < rawLines.length; i++) {
       const raw = rawLines[i];
@@ -351,16 +455,18 @@
       }
 
       let cls = 'line';
+      let flag = '';
       if (hasCursor) cls += ' is-cur';
-      const indent = raw.length - raw.trimStart().length;
       if (raw.length) {
         for (const [s, e] of marks) {
           if (s < le && e > ls) {
-            cls += s <= ls + indent && e >= le ? ' is-add' : ' is-mod';
+            flag = s <= ls + indents[i] && e >= le ? 'add' : 'mod';
+            cls += ' is-' + flag;
             break;
           }
         }
       }
+      flags.push(flag);
 
       const body = lineHTML(
         tokens[i] || [],
@@ -368,7 +474,10 @@
         sel ? Math.max(sel.from, ls) - ls : 0,
         sel ? Math.min(sel.to, le) - ls : 0
       );
-      next.push('<div class="' + cls + '"><span class="ln">' + (i + 1) + '</span><span class="lc" style="--ind:' + indent + '">' + body + '</span></div>');
+      next.push(
+        '<div class="' + cls + '"><span class="ln">' + (i + 1) + '</span>' +
+        '<span class="lc" style="--ind:' + indents[i] + ';--gi:' + guides[i] + '">' + body + '</span></div>'
+      );
       offset = le + 1;
     }
 
@@ -385,8 +494,43 @@
     el.code.classList.toggle('is-idle', phase !== 'typing' || paused);
     el.statusFile.textContent = name;
     el.statusPos.textContent = isActive ? '行 ' + (curLine + 1) + '，列 ' + (curCol + 1) : '';
+    el.statusLang.textContent = '空格: 4　UTF-8　Python';
 
+    renderCrumbs(name, rawLines, isActive ? curLine : -1);
     followCursor(instant);
+    mini = { tokens, flags, curLine: isActive ? curLine : -1 };
+    drawMinimap();
+  }
+
+  // 路径栏：文件 › 类 › 方法，告诉读者光标现在在哪个类、哪个方法里
+  function renderCrumbs(name, lines, curLine) {
+    const parts = ['<span class="crumb">' + fileIcon(name) + esc(name === DOC ? lesson.docName : name) + '</span>'];
+    if (name === DOC) {
+      const onDocStep = steps[index].doc && !peek;
+      parts.push('<span class="crumb">' + esc(onDocStep ? steps[index].title : '全部') + '</span>');
+    } else if (lines && curLine >= 0) {
+      // 从光标所在的行往上找：缩进比它浅的 class / def，就是包住它的那一层
+      const scope = (line) => /^(\s*)(class|def)\s+(\w+)/.exec(line);
+      const found = [];
+      const here = lines[curLine];
+      let limit = here.length - here.trimStart().length;
+      const own = scope(here);
+      if (own) found.unshift({ kind: own[2], name: own[3] });
+      for (let i = curLine - 1; i >= 0 && limit > 0; i--) {
+        const m = scope(lines[i]);
+        if (!m || m[1].length >= limit) continue;
+        found.unshift({ kind: m[2], name: m[3] });
+        limit = m[1].length;
+      }
+      for (const f of found) {
+        parts.push('<span class="crumb"><span class="sym' + (f.kind === 'def' ? ' is-fn' : '') + '"></span>' + esc(f.name) + '</span>');
+      }
+    }
+    const html = parts.join('');
+    if (el.crumbs.dataset.html !== html) {
+      el.crumbs.innerHTML = html;
+      el.crumbs.dataset.html = html;
+    }
   }
 
   // 前置知识页只显示当前这一页；写代码时点标签回来查，则把所有页连起来显示
@@ -399,12 +543,14 @@
     const pages = onDocStep ? [index] : docSteps;
     el.doc.innerHTML = pages
       .map((i) => {
-        const kicker = '前置知识 ' + (docSteps.indexOf(i) + 1) + ' / ' + docSteps.length;
+        const n = docSteps.indexOf(i) + 1;
+        const kicker = '前置知识 ' + String(n).padStart(2, '0') + ' / ' + String(docSteps.length).padStart(2, '0');
         return '<section class="doc-page"><div class="doc-kicker">' + kicker + '</div><h2>' + esc(steps[i].title) + '</h2>' + steps[i].doc.map(blockHTML).join('') + '</section>';
       })
       .join('');
     el.doc.classList.toggle('is-fresh', onDocStep);
     el.doc.scrollTop = 0;
+    drawFigures();
   }
 
   // 让光标所在的行保持在视野中间偏上的位置
@@ -412,7 +558,8 @@
     const cur = el.code.querySelector('.cur');
     if (!cur) return;
     const view = el.code;
-    const y = cur.offsetTop;
+    // 光标的位置 = 它所在那一行的位置 + 它在行内（折行后）的位置
+    const y = cur.closest('.line').offsetTop + cur.offsetTop;
     const h = view.clientHeight;
     if (y < view.scrollTop + h * 0.12 || y > view.scrollTop + h * 0.68) {
       view.scrollTo({ top: Math.max(0, y - h * 0.4), behavior: instant || reducedMotion ? 'auto' : 'smooth' });
@@ -421,10 +568,14 @@
 
   function renderTabs(shown) {
     const names = docSteps.length ? [DOC].concat(state.order) : state.order;
+    const dirty = phase === 'typing' ? state.active : null;
     const html = names
       .map((n) => {
         const label = n === DOC ? lesson.docName : n;
-        return '<button class="tab" type="button" role="tab" data-file="' + esc(n) + '" aria-selected="' + (n === shown) + '">' + esc(label) + '</button>';
+        return (
+          '<button class="tab' + (n === dirty ? ' is-dirty' : '') + '" type="button" role="tab" data-file="' + esc(n) + '" aria-selected="' + (n === shown) + '">' +
+          fileIcon(n) + '<span>' + esc(label) + '</span><span class="tab-dot"></span></button>'
+        );
       })
       .join('');
     if (el.tabs.dataset.html !== html) {
@@ -443,11 +594,67 @@
     el.terminal.scrollTop = el.terminal.scrollHeight;
   }
 
+  /* ------------------------------------------------------------ 小地图 */
+
+  const MINI_LINE = 3; // 小地图上每行代码占 3 像素高（2 像素字 + 1 像素间隔）
+  const MINI_CHAR = 1.15;
+  const MINI_PAD = 6;
+
+  function drawMinimap() {
+    if (!mini || el.minimap.offsetParent === null) return;
+    const t = TH.current().t;
+    const w = el.minimap.clientWidth;
+    const h = el.minimap.clientHeight;
+    const dpr = window.devicePixelRatio || 1;
+    const cv = el.miniCanvas;
+    if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) {
+      cv.width = Math.round(w * dpr);
+      cv.height = Math.round(h * dpr);
+    }
+    const ctx = cv.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    mini.tokens.forEach((line, i) => {
+      const y = MINI_PAD + i * MINI_LINE;
+      if (mini.flags[i]) {
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = mini.flags[i] === 'add' ? t.added : t.changed;
+        ctx.fillRect(0, y, 2, 2);
+      }
+      let col = 0;
+      ctx.globalAlpha = 0.72;
+      for (const tok of line) {
+        if (tok.c) {
+          ctx.fillStyle = tok.c === 'pun' ? t.code : t['s-' + tok.c] || t.code;
+          ctx.fillRect(MINI_PAD + col * MINI_CHAR, y, Math.max(1, tok.t.length * MINI_CHAR), 2);
+        }
+        col += tok.t.length;
+      }
+    });
+    ctx.globalAlpha = 1;
+    updateMiniView();
+  }
+
+  // 小地图上的半透明滑块：编辑区当前看到的是整份代码的哪一段
+  function updateMiniView() {
+    if (!mini || el.minimap.offsetParent === null) return;
+    const view = el.code;
+    const pad = parseFloat(getComputedStyle(view).paddingBottom) || 0;
+    const content = Math.max(1, view.scrollHeight - pad);
+    const miniH = mini.tokens.length * MINI_LINE;
+    const top = MINI_PAD + (view.scrollTop / content) * miniH;
+    const height = Math.min(el.minimap.clientHeight - top, (view.clientHeight / content) * miniH);
+    el.miniView.style.top = top + 'px';
+    el.miniView.style.height = Math.max(12, height) + 'px';
+  }
+
   /* -------------------------------------------------------------- 控件 */
 
   function renderControls() {
+    const step = steps[index];
     const last = index === steps.length - 1;
-    const nextIsCode = !last && steps[index].doc && !steps[index + 1].doc;
+    const nextIsCode = !last && step.doc && !steps[index + 1].doc;
     el.back.disabled = index === 0;
     el.go.dataset.phase = phase;
     el.goLabel.textContent =
@@ -458,10 +665,27 @@
     el.speed.textContent = '打字速度 ' + prefs.speed + '×';
     el.auto.textContent = '自动播放 ' + (prefs.auto ? '开' : '关');
     el.auto.setAttribute('aria-pressed', String(prefs.auto));
+
+    // 三段进度条只在要写代码的页上出现
+    const typed = (step.ops || []).length > 0;
+    el.phases.hidden = !typed;
+    const order = ['reading', 'typing', 'done'];
+    el.phases.querySelectorAll('li').forEach((li) => {
+      const at = order.indexOf(li.dataset.phase);
+      const now = order.indexOf(phase);
+      li.classList.toggle('is-now', at === now);
+      li.classList.toggle('is-past', at < now);
+    });
+  }
+
+  function renderTheme() {
+    el.themeName.textContent = TH.current().name;
+    el.btnMode.setAttribute('aria-label', TH.resolved() === 'dark' ? '切换到浅色' : '切换到深色');
   }
 
   function renderAll(instant) {
     el.chapter.textContent = '第 1 章　' + lesson.title;
+    el.progress.style.width = ((index + 1) / steps.length) * 100 + '%';
     el.app.classList.toggle('is-doc-step', Boolean(steps[index].doc));
     renderEditor(instant);
     renderTerminal();
@@ -620,6 +844,65 @@
     if (index > 0) enter(index - 1, 'show');
   }
 
+  /* ---------------------------------------------------------- 主题选择 */
+
+  // 打开时记下原来的选择：上下键和鼠标悬停只是预览，回车或点击才算数，Esc 恢复原样
+  let quick = null; // { style, mode, original }
+
+  const SWATCH_KEYS = ['s-kw', 's-fn', 's-cls', 's-str', 's-num'];
+
+  function renderQuick() {
+    const mode = TH.resolved(quick.mode);
+    el.quickList.innerHTML = TH.families
+      .map((f) => {
+        const s = f[mode];
+        const dots = SWATCH_KEYS.map((k) => '<i style="background:' + s.t[k] + '"></i>').join('');
+        const on = f.id === quick.style;
+        return (
+          '<li role="presentation"><button class="quick-item" type="button" role="option" data-style="' + f.id + '" aria-selected="' + on + '">' +
+          '<span class="quick-check">' + (f.id === quick.original.style ? '✓' : '') + '</span>' +
+          '<span class="quick-name">' + esc(f.name) + '</span>' +
+          '<span class="quick-variant">' + esc(f.dark.name + ' · ' + f.light.name) + '</span>' +
+          '<span class="swatch" style="background:' + s.t.ed + '">' + dots + '</span></button></li>'
+        );
+      })
+      .join('');
+    el.quickMode.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === quick.mode)));
+  }
+
+  function previewQuick(style, mode) {
+    quick.style = style || quick.style;
+    quick.mode = mode || quick.mode;
+    TH.set(quick.style, quick.mode, false);
+    renderQuick();
+  }
+
+  function openQuick() {
+    if (quick) return;
+    const now = TH.get();
+    quick = { style: now.style, mode: now.mode, original: now };
+    el.quick.hidden = false;
+    renderQuick();
+    const on = el.quickList.querySelector('[aria-selected="true"]');
+    if (on) on.focus({ preventScroll: true });
+  }
+
+  function closeQuick(commit) {
+    if (!quick) return;
+    if (commit) TH.set(quick.style, quick.mode, true);
+    else TH.set(quick.original.style, quick.original.mode, false);
+    quick = null;
+    el.quick.hidden = true;
+  }
+
+  function moveQuick(delta) {
+    const ids = TH.families.map((f) => f.id);
+    const at = (ids.indexOf(quick.style) + delta + ids.length) % ids.length;
+    previewQuick(ids[at]);
+    const on = el.quickList.querySelector('[aria-selected="true"]');
+    if (on) on.focus({ preventScroll: true });
+  }
+
   /* -------------------------------------------------------------- 事件 */
 
   el.go.addEventListener('click', advance);
@@ -633,8 +916,14 @@
     enter(Number(b.dataset.step), 'show');
     setDrawer(false);
   }
-  el.outline.addEventListener('click', jump);
   el.narrBody.addEventListener('click', jump);
+  el.outline.addEventListener('click', (e) => {
+    const head = e.target.closest('.outline-section');
+    if (!head) return jump(e);
+    const list = head.nextElementSibling;
+    list.hidden = !list.hidden;
+    head.setAttribute('aria-expanded', String(!list.hidden));
+  });
 
   el.speed.addEventListener('click', () => {
     prefs.speed = SPEEDS[(SPEEDS.indexOf(prefs.speed) + 1) % SPEEDS.length];
@@ -650,21 +939,74 @@
     scheduleAuto();
   });
 
-  el.tabs.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-file]');
-    if (!b || phase === 'typing') return;
+  function showTab(name) {
+    if (phase === 'typing') return;
     const home = steps[index].doc ? DOC : state.active;
-    peek = b.dataset.file === home ? null : b.dataset.file;
+    peek = name === home ? null : name;
     renderEditor(true);
     renderTerminal();
+  }
+
+  el.tabs.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-file]');
+    if (b) showTab(b.dataset.file);
+  });
+
+  // 活动栏的「书」：随时打开前置知识，再点一次回到代码
+  el.btnNotes.addEventListener('click', () => {
+    if (steps[index].doc) return;
+    showTab(shownName() === DOC ? state.active : DOC);
   });
 
   el.btnOutline.addEventListener('click', toggleOutline);
   el.btnExplorer.addEventListener('click', toggleOutline);
   el.scrim.addEventListener('click', () => setDrawer(false));
 
+  el.btnMode.addEventListener('click', () => {
+    closeQuick(false);
+    TH.set(null, TH.resolved() === 'dark' ? 'light' : 'dark', true);
+  });
+  [$('btn-theme'), $('btn-theme-top'), el.themeName].forEach((b) =>
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (quick) closeQuick(false);
+      else openQuick();
+    })
+  );
+  el.quickList.addEventListener('mouseover', (e) => {
+    const b = e.target.closest('[data-style]');
+    if (b && b.dataset.style !== quick.style) previewQuick(b.dataset.style);
+  });
+  el.quickList.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-style]');
+    if (!b) return;
+    previewQuick(b.dataset.style);
+    closeQuick(true);
+  });
+  el.quickMode.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-mode]');
+    if (b) previewQuick(null, b.dataset.mode);
+  });
+  document.addEventListener('click', (e) => {
+    if (quick && !el.quick.contains(e.target)) closeQuick(false);
+  });
+
   document.addEventListener('keydown', (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+    if (quick) {
+      if (e.key === 'Escape') closeQuick(false);
+      else if (e.key === 'Enter') closeQuick(true);
+      else if (e.key === 'ArrowDown') moveQuick(1);
+      else if (e.key === 'ArrowUp') moveQuick(-1);
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        const modes = ['dark', 'light', 'auto'];
+        previewQuick(null, modes[(modes.indexOf(quick.mode) + (e.key === 'ArrowRight' ? 1 : 2)) % 3]);
+      } else return;
+      e.preventDefault();
+      return;
+    }
+
     const onControl = e.target instanceof HTMLElement && e.target.closest('button, a');
     if (e.key === 'ArrowRight' || e.key === 'PageDown') {
       e.preventDefault();
@@ -679,14 +1021,27 @@
     } else if (e.key === 'p' || e.key === 'P') {
       e.preventDefault();
       togglePause();
+    } else if (e.key === 't' || e.key === 'T') {
+      e.preventDefault();
+      openQuick();
     } else if (e.key === 'Escape') {
       setDrawer(false);
     }
   });
 
+  el.code.addEventListener('scroll', updateMiniView, { passive: true });
+  window.addEventListener('resize', drawMinimap);
+
+  TH.onChange(() => {
+    renderTheme();
+    drawMinimap();
+    drawFigures();
+  });
+
   /* -------------------------------------------------------------- 启动 */
 
   buildOutline();
+  renderTheme();
   const start = Math.min(Math.max(0, prefs.step | 0), steps.length - 1);
   enter(start, start === 0 ? 'play' : 'show');
 })();
