@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>从零手写 Transformer</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app" id="app">
+  <header class="titlebar">
+    <button class="btn-outline" id="btn-outline" type="button" aria-expanded="false" aria-controls="sidebar">目录</button>
+    <div class="title">
+      <span class="title-name">从零手写 Transformer</span>
+      <span class="title-sub" id="chapter-name"></span>
+    </div>
+    <span class="title-count" id="step-count"></span>
+  </header>
+
+  <div class="activity">
+    <button class="activity-btn" id="btn-explorer" type="button" aria-label="显示或隐藏目录" aria-pressed="true">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true">
+        <path d="M14.5 3H7v15h12V7.5L14.5 3z"/>
+        <path d="M14.5 3v4.5H19"/>
+        <path d="M7 7H4v14h11v-3"/>
+      </svg>
+    </button>
+  </div>
+
+  <nav class="sidebar" id="sidebar" aria-label="目录">
+    <div class="side-label">目录</div>
+    <ol class="outline" id="outline"></ol>
+  </nav>
+  <button class="scrim" id="scrim" type="button" aria-label="关闭目录" tabindex="-1"></button>
+
+  <main class="editor">
+    <div class="tabs" id="tabs" role="tablist" aria-label="文件"></div>
+    <div class="code is-idle" id="code" aria-label="代码"></div>
+    <article class="doc" id="doc" hidden></article>
+    <section class="terminal" id="terminal" aria-label="终端" hidden>
+      <div class="term-head"><span>终端</span></div>
+      <div class="term-body" id="term-body"></div>
+    </section>
+  </main>
+
+  <aside class="narr" aria-label="旁白">
+    <div class="narr-head"><span>旁白</span><span id="narr-count"></span></div>
+    <div class="narr-scroll" id="narr-scroll">
+      <div class="narr-eyebrow" id="narr-section"></div>
+      <h1 class="narr-title" id="narr-title"></h1>
+      <div class="narr-body" id="narr-body"></div>
+    </div>
+    <div class="narr-nav">
+      <button class="btn btn-back" id="btn-back" type="button">上一步</button>
+      <button class="btn btn-go" id="btn-go" type="button"><span class="btn-fill" id="btn-fill"></span><span class="btn-label" id="btn-go-label">下一步</span></button>
+    </div>
+  </aside>
+
+  <footer class="statusbar">
+    <span id="status-file"></span>
+    <span id="status-pos"></span>
+    <span class="status-desktop">→ 或空格：继续　←：上一步</span>
+    <span class="status-spacer"></span>
+    <button class="status-btn" id="btn-speed" type="button"></button>
+    <button class="status-btn" id="btn-auto" type="button" aria-pressed="false"></button>
+  </footer>
+</div>
+
+<script src="js/highlight.js"></script>
+<script src="js/engine.js"></script>
+<script src="lessons/01-embeddings.js"></script>
+<script src="js/player.js"></script>
+</body>
+</html>
