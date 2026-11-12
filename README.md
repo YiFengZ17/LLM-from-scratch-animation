@@ -16,7 +16,9 @@
 
 ## 怎么看
 
-直接用浏览器打开 `index.html` 就行，不需要安装任何东西，也不需要联网。
+在线版：<https://yifengz17.github.io/LLM-from-scratch-animation/>
+
+也可以直接用浏览器打开 `index.html`，不需要安装任何东西，也不需要联网。
 
 | 操作 | 作用 |
 |---|---|
@@ -41,6 +43,7 @@ js/player.js            播放器：把引擎的状态画到页面上，处理�
 lessons/01-embeddings.js  第 1 章的脚本：前置知识、每一步的旁白和代码操作
 tools/verify.mjs        校验脚本，并导出写完后的文件
 tools/bundle.mjs        合并成单个 HTML 文件
+tools/deploy.sh         把站点文件发布到 gh-pages 分支（GitHub Pages）
 ```
 
 ## 怎么写新的一章
