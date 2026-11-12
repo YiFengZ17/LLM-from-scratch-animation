@@ -51,7 +51,8 @@
       <div class="narr-body" id="narr-body"></div>
     </div>
     <div class="narr-nav">
-      <button class="btn btn-back" id="btn-back" type="button">上一步</button>
+      <button class="btn btn-quiet" id="btn-back" type="button">上一步</button>
+      <button class="btn btn-quiet" id="btn-pause" type="button" aria-pressed="false" disabled>暂停</button>
       <button class="btn btn-go" id="btn-go" type="button"><span class="btn-fill" id="btn-fill"></span><span class="btn-label" id="btn-go-label">下一步</span></button>
     </div>
   </aside>
@@ -59,7 +60,7 @@
   <footer class="statusbar">
     <span id="status-file"></span>
     <span id="status-pos"></span>
-    <span class="status-desktop">→ 或空格：继续　←：上一步</span>
+    <span class="status-desktop">→ 或空格：继续　←：上一步　P：暂停</span>
     <span class="status-spacer"></span>
     <button class="status-btn" id="btn-speed" type="button"></button>
     <button class="status-btn" id="btn-auto" type="button" aria-pressed="false"></button>
