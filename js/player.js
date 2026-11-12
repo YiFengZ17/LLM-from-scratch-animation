@@ -39,6 +39,7 @@
     narrTitle: $('narr-title'),
     narrBody: $('narr-body'),
     back: $('btn-back'),
+    pause: $('btn-pause'),
     go: $('btn-go'),
     goLabel: $('btn-go-label'),
     fill: $('btn-fill'),
@@ -51,6 +52,19 @@
   const SPEEDS = [0.5, 0.75, 1, 1.5, 2];
   const STORE_KEY = 'transformer-typing-v2';
   const DOC = '@doc'; // 文档预览标签页的内部名字
+
+  // 自动播放时每一页停多久（毫秒），想调节奏改这里。
+  // 旁白又短又简单的页停 simple；其余的页停 normal，引用多或文字长再加一点，最多 max。
+  const PACE = {
+    simple: 2000,
+    normal: 5000,
+    extra: 1000, // 每多一条引用、或文字偏长，各加这么多
+    max: 7000,
+    doc: 10000, // 前置知识页内容多，单独给一个时间
+    afterTyping: 2000, // 代码打完后，停一下再翻页
+  };
+  const SIMPLE_MAX_CHARS = 60; // 旁白不超过这么多字、且没有引用和公式，算「短而简单」
+  const LONG_CHARS = 120;
   const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const narrow = window.matchMedia ? window.matchMedia('(max-width: 1120px)') : { matches: false };
 
@@ -78,6 +92,8 @@
   let phase = 'done';
   let timer = null; // 打字的定时器
   let waitTimer = null; // 自动播放的等待定时器
+  let pending = null; // 正在进行的等待：{ then, total, left, started }
+  let paused = false;
   let peek = null; // 读者点了别的标签页，临时查看
   let lineCache = [];
   let docShown = null;
@@ -112,20 +128,18 @@
       .join('');
   }
 
-  // 估算一页有多少字，自动播放时用来留阅读时间
-  function plainLength(blocks) {
-    const strip = (s) => String(s).replace(/<[^>]+>|[`*]/g, '').length;
-    let n = 0;
-    for (const item of blocks || []) {
-      if (typeof item === 'string') n += strip(item);
-      else if (item.ref) n += strip(item.ref.zh) + 10;
-      else if (item.list) n += item.list.reduce((a, s) => a + strip(s), 0);
-      else if (item.table) n += item.table.rows.length * 14;
-      else if (item.code) n += 40;
-      else if (item.formula) n += 30;
-      else n += 12;
-    }
-    return n;
+  // 自动播放时这一页的旁白该停多久：看长度，也看难度（有没有引用、公式这类要慢读的东西）。
+  // 个别页想单独指定，可以在脚本里给这一步写 read: 秒数。
+  function readingMs(step) {
+    if (step.read) return step.read * 1000;
+    if (step.doc) return PACE.doc;
+    const say = step.say || [];
+    const refs = say.filter((b) => b.ref).length;
+    const hard = refs > 0 || say.some((b) => b.formula || b.table || b.code);
+    const chars = say.reduce((n, b) => (typeof b === 'string' ? n + b.replace(/<[^>]+>|[`*]/g, '').length : n), 0);
+    if (!hard && chars <= SIMPLE_MAX_CHARS) return PACE.simple;
+    const extra = Math.max(0, refs - 1) + (chars > LONG_CHARS ? 1 : 0);
+    return Math.min(PACE.max, PACE.normal + extra * PACE.extra);
   }
 
   /* ------------------------------------------------- 文字块（旁白与文档共用） */
@@ -368,7 +382,7 @@
     while (el.code.children.length > next.length) el.code.lastElementChild.remove();
     lineCache = next;
 
-    el.code.classList.toggle('is-idle', phase !== 'typing');
+    el.code.classList.toggle('is-idle', phase !== 'typing' || paused);
     el.statusFile.textContent = name;
     el.statusPos.textContent = isActive ? '行 ' + (curLine + 1) + '，列 ' + (curCol + 1) : '';
 
@@ -438,6 +452,9 @@
     el.go.dataset.phase = phase;
     el.goLabel.textContent =
       phase === 'reading' ? '开始写代码' : phase === 'typing' ? '直接看结果' : last ? '从头再看' : nextIsCode ? '开始写代码' : '下一步';
+    el.pause.disabled = !canPause();
+    el.pause.textContent = paused ? '恢复' : '暂停';
+    el.pause.setAttribute('aria-pressed', String(paused));
     el.speed.textContent = '打字速度 ' + prefs.speed + '×';
     el.auto.textContent = '自动播放 ' + (prefs.auto ? '开' : '关');
     el.auto.setAttribute('aria-pressed', String(prefs.auto));
@@ -458,35 +475,80 @@
     el.fill.style.transform = 'scaleX(0)';
   }
 
+  function stopWait() {
+    clearTimeout(waitTimer);
+    waitTimer = null;
+    pending = null;
+    resetFill();
+  }
+
   function stopTimers() {
     clearTimeout(timer);
-    clearTimeout(waitTimer);
-    timer = waitTimer = null;
-    resetFill();
+    timer = null;
+    stopWait();
+    paused = false;
   }
 
   // 自动播放时的等待：按钮上有一条进度，走完就执行 then
   function wait(ms, then) {
-    clearTimeout(waitTimer);
-    resetFill();
-    void el.fill.offsetWidth;
-    el.fill.style.transition = 'transform ' + ms + 'ms linear';
-    el.fill.style.transform = 'scaleX(1)';
-    waitTimer = setTimeout(then, ms);
+    stopWait();
+    pending = { then, total: ms, left: ms, started: 0 };
+    runWait();
   }
 
-  // 按字数估一个阅读时间，大约每秒 7 个字
-  const readingMs = (blocks) => Math.min(40000, Math.max(3500, plainLength(blocks) * 140));
+  // 开始（或在暂停后接着）走完剩下的等待时间
+  function runWait() {
+    const done = 1 - pending.left / pending.total;
+    el.fill.style.transition = 'none';
+    el.fill.style.transform = 'scaleX(' + done + ')';
+    void el.fill.offsetWidth;
+    el.fill.style.transition = 'transform ' + pending.left + 'ms linear';
+    el.fill.style.transform = 'scaleX(1)';
+    pending.started = performance.now();
+    waitTimer = setTimeout(() => {
+      const then = pending.then;
+      stopWait();
+      then();
+    }, pending.left);
+  }
+
+  // 暂停对两件事有效：正在打字，或自动播放正在倒计时
+  function canPause() {
+    return paused || phase === 'typing' || pending !== null;
+  }
+
+  function togglePause() {
+    if (!canPause()) return;
+    paused = !paused;
+    if (paused) {
+      clearTimeout(timer);
+      timer = null;
+      if (pending) {
+        clearTimeout(waitTimer);
+        waitTimer = null;
+        pending.left = Math.max(0, pending.left - (performance.now() - pending.started));
+        el.fill.style.transition = 'none';
+        el.fill.style.transform = 'scaleX(' + (1 - pending.left / pending.total) + ')';
+      }
+    } else if (pending) {
+      runWait();
+    } else if (phase === 'typing') {
+      tick();
+    }
+    el.code.classList.toggle('is-idle', phase !== 'typing' || paused);
+    renderControls();
+  }
 
   function scheduleAuto() {
     if (!prefs.auto) return;
     const step = steps[index];
     if (phase === 'reading') {
-      wait(readingMs(step.say), startTyping);
+      wait(readingMs(step), startTyping);
     } else if (phase === 'done' && index < steps.length - 1) {
       const typed = (step.ops || []).length > 0;
-      wait(typed ? 2600 : readingMs(step.doc || step.say), advance);
+      wait(typed ? PACE.afterTyping : readingMs(step), advance);
     }
+    renderControls();
   }
 
   // mode = 'play'：从上一步的结果出发，准备播放这一步
@@ -562,6 +624,7 @@
 
   el.go.addEventListener('click', advance);
   el.back.addEventListener('click', back);
+  el.pause.addEventListener('click', togglePause);
 
   // 目录和前置知识清单里的条目都带 data-step，点了就跳过去
   function jump(e) {
@@ -581,10 +644,8 @@
 
   el.auto.addEventListener('click', () => {
     prefs.auto = !prefs.auto;
-    if (phase !== 'typing') {
-      clearTimeout(waitTimer);
-      resetFill();
-    }
+    stopWait();
+    if (phase !== 'typing') paused = false;
     renderControls();
     scheduleAuto();
   });
@@ -615,6 +676,9 @@
     } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
       e.preventDefault();
       back();
+    } else if (e.key === 'p' || e.key === 'P') {
+      e.preventDefault();
+      togglePause();
     } else if (e.key === 'Escape') {
       setDrawer(false);
     }

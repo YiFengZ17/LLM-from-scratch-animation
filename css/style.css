@@ -862,18 +862,23 @@ sup {
   white-space: nowrap;
 }
 
-.btn-back {
+.btn-quiet {
   background: var(--btn-2);
   color: var(--fg-strong);
 }
 
-.btn-back:hover:not(:disabled) {
+.btn-quiet:hover:not(:disabled) {
   background: var(--btn-2-hover);
 }
 
-.btn-back:disabled {
+.btn-quiet:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+.btn-quiet[aria-pressed='true'] {
+  background: var(--active);
+  color: var(--status-fg);
 }
 
 .btn-go {
