@@ -1,7 +1,11 @@
 /*
  * 播放器：把引擎算出来的状态画到页面上，并处理翻页。
  *
- * 一页（一步）有三个阶段：
+ * 步骤有两种：
+ *   前置知识页（step.doc）  不写代码，编辑区显示一页文档预览，右侧是前置知识的清单。
+ *   写代码页（step.ops）    右侧是旁白，编辑区里代码逐字符打出来。
+ *
+ * 写代码页有三个阶段：
  *   reading  旁白已经出现，光标停在要写代码的位置，等读者读完
  *   typing   代码正在一个字一个字打出来
  *   done     这一步写完了
@@ -23,8 +27,10 @@
     sidebar: $('sidebar'),
     scrim: $('scrim'),
     btnOutline: $('btn-outline'),
+    btnExplorer: $('btn-explorer'),
     tabs: $('tabs'),
     code: $('code'),
+    doc: $('doc'),
     terminal: $('terminal'),
     termBody: $('term-body'),
     narrScroll: $('narr-scroll'),
@@ -43,11 +49,14 @@
   };
 
   const SPEEDS = [0.5, 0.75, 1, 1.5, 2];
-  const STORE_KEY = 'transformer-typing-v1';
+  const STORE_KEY = 'transformer-typing-v2';
+  const DOC = '@doc'; // 文档预览标签页的内部名字
   const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const narrow = window.matchMedia ? window.matchMedia('(max-width: 1120px)') : { matches: false };
 
   const lesson = window.LESSONS[0];
   const steps = lesson.steps;
+  const docSteps = steps.map((s, i) => (s.doc ? i : -1)).filter((i) => i >= 0);
 
   let compiled;
   try {
@@ -61,7 +70,7 @@
 
   const prefs = Object.assign({ speed: 1, step: 0 }, loadPrefs());
   if (!SPEEDS.includes(prefs.speed)) prefs.speed = 1;
-  prefs.auto = false; // 自动播放每次打开都从「关」开始，免得页面自己动起来吓人一跳
+  prefs.auto = false; // 自动播放每次打开都从「关」开始，免得页面自己动起来
 
   let index = 0;
   let state = null;
@@ -69,8 +78,9 @@
   let phase = 'done';
   let timer = null; // 打字的定时器
   let waitTimer = null; // 自动播放的等待定时器
-  let peek = null; // 读者点了别的文件标签，临时查看
+  let peek = null; // 读者点了别的标签页，临时查看
   let lineCache = [];
+  let docShown = null;
 
   /* ------------------------------------------------------------ 小工具 */
 
@@ -85,37 +95,59 @@
   function savePrefs() {
     prefs.step = index;
     try {
-      localStorage.setItem(STORE_KEY, JSON.stringify(prefs));
+      localStorage.setItem(STORE_KEY, JSON.stringify({ speed: prefs.speed, step: prefs.step }));
     } catch (e) {
       /* 存不了也不影响使用 */
     }
   }
 
   const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' };
-  const esc = (s) => s.replace(/[&<>"]/g, (c) => ESC[c]);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ESC[c]);
 
-  // 旁白的简易标记：`代码`、**加粗**，其余 HTML 原样保留
+  // 简易标记：`代码`、**加粗**，其余 HTML 原样保留
   function md(s) {
-    return s
+    return String(s)
       .split('`')
       .map((part, i) => (i % 2 ? '<code>' + esc(part) + '</code>' : part.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')))
       .join('');
   }
 
-  function plainLength(step) {
+  // 估算一页有多少字，自动播放时用来留阅读时间
+  function plainLength(blocks) {
+    const strip = (s) => String(s).replace(/<[^>]+>|[`*]/g, '').length;
     let n = 0;
-    for (const item of step.say || []) {
-      if (typeof item === 'string') n += item.replace(/<[^>]+>|[`*]/g, '').length;
+    for (const item of blocks || []) {
+      if (typeof item === 'string') n += strip(item);
+      else if (item.ref) n += strip(item.ref.zh) + 10;
+      else if (item.list) n += item.list.reduce((a, s) => a + strip(s), 0);
+      else if (item.table) n += item.table.rows.length * 14;
+      else if (item.code) n += 40;
       else if (item.formula) n += 30;
       else n += 12;
     }
     return n;
   }
 
-  /* -------------------------------------------------------------- 旁白 */
+  /* ------------------------------------------------- 文字块（旁白与文档共用） */
+
+  function codeHTML(src) {
+    return H.tokenize(src)
+      .map((line) => line.map((t) => (t.c ? '<span class="t-' + t.c + '">' + esc(t.t) + '</span>' : esc(t.t))).join(''))
+      .join('\n');
+  }
 
   function blockHTML(item) {
     if (typeof item === 'string') return '<p>' + md(item) + '</p>';
+
+    if (item.ref) {
+      const r = item.ref;
+      return (
+        '<figure class="ref"><figcaption class="ref-head"><code>' + esc(r.api) + '</code>' +
+        '<a href="' + esc(r.url) + '" target="_blank" rel="noopener">' + esc(r.source) + ' ↗</a></figcaption>' +
+        '<blockquote lang="en">' + esc(r.quote) + '</blockquote>' +
+        '<p class="ref-zh">' + md(r.zh) + '</p></figure>'
+      );
+    }
 
     if (item.shape) {
       const chips = item.shape.map((s) => '<code>' + esc(s) + '</code>').join('<span class="shape-arrow" aria-label="变成">→</span>');
@@ -124,6 +156,26 @@
 
     if (item.formula) {
       return '<div class="formula">' + item.formula.map((f) => '<div>' + f + '</div>').join('') + '</div>';
+    }
+
+    if (item.list) {
+      return '<ul>' + item.list.map((s) => '<li>' + md(s) + '</li>').join('') + '</ul>';
+    }
+
+    if (item.code) {
+      return '<pre><code>' + codeHTML(item.code) + '</code></pre>';
+    }
+
+    if (item.table) {
+      const t = item.table;
+      const num = (i) => ((t.num || []).includes(i) ? ' class="num"' : '');
+      let html = '<div class="table-wrap"><table><thead><tr>';
+      html += t.head.map((h, i) => '<th' + num(i) + '>' + md(h) + '</th>').join('');
+      html += '</tr></thead><tbody>';
+      for (const row of t.rows) html += '<tr>' + row.map((c, i) => '<td' + num(i) + '>' + md(c) + '</td>').join('') + '</tr>';
+      html += '</tbody></table></div>';
+      if (t.note) html += '<p class="doc-note">' + md(t.note) + '</p>';
+      return html;
     }
 
     if (item.roadmap) {
@@ -140,14 +192,28 @@
     return '';
   }
 
+  /* -------------------------------------------------------------- 旁白 */
+
   function renderNarration() {
     const step = steps[index];
     const count = index + 1 + ' / ' + steps.length;
-    el.narrSection.textContent = step.section;
     el.narrCount.textContent = count;
     el.count.textContent = count;
-    el.narrTitle.textContent = step.title;
-    el.narrBody.innerHTML = (step.say || []).map(blockHTML).join('');
+    el.narrSection.textContent = step.section;
+
+    if (step.doc) {
+      // 前置知识页：内容在左边的文档里，这里只放清单，告诉读者一共几件事、现在在哪
+      el.narrTitle.textContent = '写代码之前，先弄懂这 ' + docSteps.length + ' 件事';
+      const items = docSteps.map((i) => {
+        const seen = i < index ? ' class="is-seen"' : '';
+        const cur = i === index ? ' aria-current="step"' : '';
+        return '<li' + seen + '><button type="button" data-step="' + i + '"' + cur + '>' + esc(steps[i].title) + '</button></li>';
+      });
+      el.narrBody.innerHTML = '<ol class="klist">' + items.join('') + '</ol>';
+    } else {
+      el.narrTitle.textContent = step.title;
+      el.narrBody.innerHTML = (step.say || []).map(blockHTML).join('');
+    }
     el.narrScroll.scrollTop = 0;
   }
 
@@ -165,12 +231,6 @@
       html += '<li><button class="outline-step" type="button" data-step="' + i + '">' + esc(step.title) + '</button></li>';
     });
     el.outline.innerHTML = html + '</ol></li>';
-    el.outline.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-step]');
-      if (!b) return;
-      enter(Number(b.dataset.step), 'show');
-      setOutlineOpen(false);
-    });
   }
 
   function renderOutline() {
@@ -191,14 +251,29 @@
     });
   }
 
-  function setOutlineOpen(open) {
+  function toggleOutline() {
+    if (narrow.matches) {
+      setDrawer(!el.app.classList.contains('is-outline-open'));
+    } else {
+      const closed = el.app.classList.toggle('is-side-closed');
+      el.btnExplorer.setAttribute('aria-pressed', String(!closed));
+    }
+  }
+
+  function setDrawer(open) {
     el.app.classList.toggle('is-outline-open', open);
     el.btnOutline.setAttribute('aria-expanded', String(open));
   }
 
-  /* ------------------------------------------------------------ 编辑器 */
+  /* ------------------------------------------------------------ 编辑区 */
 
   const CURSOR = '<span class="cur"></span>';
+
+  // 当前编辑区该显示什么：文档预览，还是某个代码文件
+  function shownName() {
+    if (peek) return peek;
+    return steps[index].doc ? DOC : state.active;
+  }
 
   // 把一行的 token 拼成 HTML，同时在指定的列插入光标、给选中的范围加底色
   function lineHTML(tokens, cur, selA, selB) {
@@ -225,7 +300,19 @@
   }
 
   function renderEditor(instant) {
-    const name = peek || state.active;
+    const name = shownName();
+    const isDoc = name === DOC;
+    el.code.hidden = isDoc;
+    el.doc.hidden = !isDoc;
+    renderTabs(name);
+
+    if (isDoc) {
+      renderDoc();
+      el.statusFile.textContent = lesson.docName + '（预览）';
+      el.statusPos.textContent = '';
+      return;
+    }
+
     const text = state.files[name] || '';
     const isActive = name === state.active;
     const cursor = isActive ? state.cursor[name] : -1;
@@ -285,8 +372,25 @@
     el.statusFile.textContent = name;
     el.statusPos.textContent = isActive ? '行 ' + (curLine + 1) + '，列 ' + (curCol + 1) : '';
 
-    renderTabs(name);
     followCursor(instant);
+  }
+
+  // 前置知识页只显示当前这一页；写代码时点标签回来查，则把所有页连起来显示
+  function renderDoc() {
+    const onDocStep = Boolean(steps[index].doc) && !peek;
+    const key = onDocStep ? 'step:' + index : 'all';
+    if (docShown === key) return;
+    docShown = key;
+
+    const pages = onDocStep ? [index] : docSteps;
+    el.doc.innerHTML = pages
+      .map((i) => {
+        const kicker = '前置知识 ' + (docSteps.indexOf(i) + 1) + ' / ' + docSteps.length;
+        return '<section class="doc-page"><div class="doc-kicker">' + kicker + '</div><h2>' + esc(steps[i].title) + '</h2>' + steps[i].doc.map(blockHTML).join('') + '</section>';
+      })
+      .join('');
+    el.doc.classList.toggle('is-fresh', onDocStep);
+    el.doc.scrollTop = 0;
   }
 
   // 让光标所在的行保持在视野中间偏上的位置
@@ -302,8 +406,12 @@
   }
 
   function renderTabs(shown) {
-    const html = state.order
-      .map((n) => '<button class="tab" type="button" role="tab" data-file="' + esc(n) + '" aria-selected="' + (n === shown) + '">' + esc(n) + '</button>')
+    const names = docSteps.length ? [DOC].concat(state.order) : state.order;
+    const html = names
+      .map((n) => {
+        const label = n === DOC ? lesson.docName : n;
+        return '<button class="tab" type="button" role="tab" data-file="' + esc(n) + '" aria-selected="' + (n === shown) + '">' + esc(label) + '</button>';
+      })
       .join('');
     if (el.tabs.dataset.html !== html) {
       el.tabs.innerHTML = html;
@@ -312,11 +420,11 @@
   }
 
   function renderTerminal() {
-    const t = state.term;
+    const t = shownName() === DOC ? null : state.term;
     el.terminal.hidden = !t;
     if (!t) return;
     let html = '<div><span class="term-prompt">$ </span>' + esc(t.cmd) + (t.lines.length || t.done ? '' : CURSOR) + '</div>';
-    for (const line of t.lines) html += '<div class="term-out">' + esc(line) + '</div>';
+    for (const line of t.lines) html += '<div>' + esc(line) + '</div>';
     el.termBody.innerHTML = html;
     el.terminal.scrollTop = el.terminal.scrollHeight;
   }
@@ -325,9 +433,11 @@
 
   function renderControls() {
     const last = index === steps.length - 1;
+    const nextIsCode = !last && steps[index].doc && !steps[index + 1].doc;
     el.back.disabled = index === 0;
     el.go.dataset.phase = phase;
-    el.goLabel.textContent = phase === 'reading' ? '开始写代码' : phase === 'typing' ? '直接看结果' : last ? '从头再看' : '下一步';
+    el.goLabel.textContent =
+      phase === 'reading' ? '开始写代码' : phase === 'typing' ? '直接看结果' : last ? '从头再看' : nextIsCode ? '开始写代码' : '下一步';
     el.speed.textContent = '打字速度 ' + prefs.speed + '×';
     el.auto.textContent = '自动播放 ' + (prefs.auto ? '开' : '关');
     el.auto.setAttribute('aria-pressed', String(prefs.auto));
@@ -335,6 +445,7 @@
 
   function renderAll(instant) {
     el.chapter.textContent = '第 1 章　' + lesson.title;
+    el.app.classList.toggle('is-doc-step', Boolean(steps[index].doc));
     renderEditor(instant);
     renderTerminal();
     renderControls();
@@ -342,33 +453,39 @@
 
   /* -------------------------------------------------------------- 流程 */
 
+  function resetFill() {
+    el.fill.style.transition = 'none';
+    el.fill.style.transform = 'scaleX(0)';
+  }
+
   function stopTimers() {
     clearTimeout(timer);
     clearTimeout(waitTimer);
     timer = waitTimer = null;
-    el.fill.style.transition = 'none';
-    el.fill.style.transform = 'scaleX(0)';
+    resetFill();
   }
 
   // 自动播放时的等待：按钮上有一条进度，走完就执行 then
   function wait(ms, then) {
     clearTimeout(waitTimer);
-    el.fill.style.transition = 'none';
-    el.fill.style.transform = 'scaleX(0)';
+    resetFill();
     void el.fill.offsetWidth;
     el.fill.style.transition = 'transform ' + ms + 'ms linear';
     el.fill.style.transform = 'scaleX(1)';
     waitTimer = setTimeout(then, ms);
   }
 
+  // 按字数估一个阅读时间，大约每秒 7 个字
+  const readingMs = (blocks) => Math.min(40000, Math.max(3500, plainLength(blocks) * 140));
+
   function scheduleAuto() {
     if (!prefs.auto) return;
+    const step = steps[index];
     if (phase === 'reading') {
-      // 按旁白的字数估一个阅读时间，大约每秒 7 个字
-      wait(Math.min(24000, Math.max(3500, plainLength(steps[index]) * 140)), startTyping);
+      wait(readingMs(step.say), startTyping);
     } else if (phase === 'done' && index < steps.length - 1) {
-      const hasCode = (steps[index].ops || []).length > 0;
-      wait(hasCode ? 2600 : Math.min(24000, Math.max(3500, plainLength(steps[index]) * 140)), advance);
+      const typed = (step.ops || []).length > 0;
+      wait(typed ? 2600 : readingMs(step.doc || step.say), advance);
     }
   }
 
@@ -446,6 +563,16 @@
   el.go.addEventListener('click', advance);
   el.back.addEventListener('click', back);
 
+  // 目录和前置知识清单里的条目都带 data-step，点了就跳过去
+  function jump(e) {
+    const b = e.target.closest('[data-step]');
+    if (!b) return;
+    enter(Number(b.dataset.step), 'show');
+    setDrawer(false);
+  }
+  el.outline.addEventListener('click', jump);
+  el.narrBody.addEventListener('click', jump);
+
   el.speed.addEventListener('click', () => {
     prefs.speed = SPEEDS[(SPEEDS.indexOf(prefs.speed) + 1) % SPEEDS.length];
     renderControls();
@@ -456,39 +583,40 @@
     prefs.auto = !prefs.auto;
     if (phase !== 'typing') {
       clearTimeout(waitTimer);
-      el.fill.style.transition = 'none';
-      el.fill.style.transform = 'scaleX(0)';
+      resetFill();
     }
     renderControls();
-    savePrefs();
     scheduleAuto();
   });
 
   el.tabs.addEventListener('click', (e) => {
     const b = e.target.closest('[data-file]');
     if (!b || phase === 'typing') return;
-    peek = b.dataset.file === state.active ? null : b.dataset.file;
+    const home = steps[index].doc ? DOC : state.active;
+    peek = b.dataset.file === home ? null : b.dataset.file;
     renderEditor(true);
+    renderTerminal();
   });
 
-  el.btnOutline.addEventListener('click', () => setOutlineOpen(!el.app.classList.contains('is-outline-open')));
-  el.scrim.addEventListener('click', () => setOutlineOpen(false));
+  el.btnOutline.addEventListener('click', toggleOutline);
+  el.btnExplorer.addEventListener('click', toggleOutline);
+  el.scrim.addEventListener('click', () => setDrawer(false));
 
   document.addEventListener('keydown', (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    const onButton = e.target instanceof HTMLElement && e.target.closest('button');
+    const onControl = e.target instanceof HTMLElement && e.target.closest('button, a');
     if (e.key === 'ArrowRight' || e.key === 'PageDown') {
       e.preventDefault();
       advance();
     } else if (e.key === ' ' || e.key === 'Enter') {
-      if (onButton) return; // 交给按钮自己处理，免得触发两次
+      if (onControl) return; // 交给按钮或链接自己处理，免得触发两次
       e.preventDefault();
       advance();
     } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
       e.preventDefault();
       back();
     } else if (e.key === 'Escape') {
-      setOutlineOpen(false);
+      setDrawer(false);
     }
   });
 
