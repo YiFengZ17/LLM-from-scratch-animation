@@ -42,14 +42,14 @@
         doc: [
           '这一章在 `model.py` 里写两个零件：`InputEmbeddings` 和 `PositionalEncoding`。它们是 Transformer 的入口，一句话先经过它们，才交给后面的注意力层。',
           {
-            table: {
-              head: ['阶段', '数据是什么', '形状'],
-              rows: [
-                ['输入', '每个词在词表里的编号', '`(batch, seq_len)`'],
-                ['经过 `InputEmbeddings`', '每个词变成一个表示含义的向量', '`(batch, seq_len, d_model)`'],
-                ['经过 `PositionalEncoding`', '向量里加进了位置信息', '`(batch, seq_len, d_model)`'],
-              ],
-            },
+            flow: [
+              { label: '我 爱 猫', sub: '一句话' },
+              { label: '[5, 2, 9]', sub: '(batch, seq_len)' },
+              { label: 'InputEmbeddings', sub: '编号换成向量', part: true },
+              { label: '词向量', sub: '(batch, seq_len, d_model)' },
+              { label: 'PositionalEncoding', sub: '加上位置', part: true },
+              { label: '带位置的向量', sub: '(batch, seq_len, d_model)' },
+            ],
           },
           {
             list: [
@@ -128,6 +128,10 @@
             },
           },
           '列号越大，分母越大，那一列随位置变化得越慢，就像秒针、分针和时针。各列合在一起，每个位置都得到一组独有的数，而且都在 -1 到 1 之间。',
+          {
+            figure: 'pe-heatmap',
+            note: '整张位置表的前 50 行，每个小格是一个数。左边的列随位置变化快，条纹密；越往右变化越慢。',
+          },
           '代码里不直接算 10000 的幂，而是用等价的指数形式，数值上更稳定。它算出的是分母的倒数，所以代码里用乘法：',
           { formula: ['1 / 10000<sup>2i/d_model</sup> = exp( 2i · (−ln 10000 / d_model) )'] },
         ],

@@ -108,7 +108,8 @@
         continue;
       }
 
-      push(ch, 'op');
+      // 括号、逗号这类标点和运算符分开，主题给它们的颜色不一样
+      push(ch, '()[]{},.:;'.includes(ch) ? 'pun' : 'op');
       i++;
       prevWord = '';
       prevChar = ch;
