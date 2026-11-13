@@ -11,6 +11,7 @@
 | 课程 | 内容 | 规模 | 语言 |
 |---|---|---|---|
 | 从零手写 Transformer | 嵌入、位置编码、层归一化、前馈网络、多头注意力、编码器、解码器、组装成模型 | 6 章 95 页，`model.py` 写到 241 行 | Python（PyTorch） |
+| 哈希表与数组 | 概念（哈希表怎么一步找到、冲突、计数数组、原地标记），然后 1431、383、1、169、448、1331、49、128、705 九道题，最后亲手实现哈希集合 | 10 章 70 页 | Python、C、C++、Java、Rust |
 | 滑动窗口 | 概念与模板，然后 643、1876、219、209、3、438、76 七道题，从简单到困难 | 8 章 69 页 | Python、C、C++、Java、Rust |
 | 动态规划 | 概念（从递归到填表、四步法），然后 7 个子模块 29 道题：一维递推、子数组、股票、网格、背包、子序列与字符串、区间与计数 | 30 章 219 页 | Python、C、C++、Java、Rust |
 
@@ -70,6 +71,7 @@ js/site.js                  展厅：首页和课程页
 js/main.js                  路由：按网址显示展厅或编辑器
 lessons/kit.js              课程脚本的公共写法：引用各语言官方文档和论文
 lessons/transformer/        从零手写 Transformer（00-course.js 定义课程，01-06 是各章）
+lessons/hash-table/         哈希表与数组（00-course.js 定义课程和演示的帧，01 概念，02-10 九道题）
 lessons/sliding-window/     滑动窗口（00-course.js 定义课程和演示的帧，01 概念，02-08 七道题）
 lessons/dynamic-programming/ 动态规划（00-course.js 定义课程，00-course.js 与 00-traces.js 生成 DP 表的帧，01 概念，02-30 每题一个文件，按子模块分组）
 tools/verify.mjs            校验所有课程和语言，并导出每章写完后的文件
