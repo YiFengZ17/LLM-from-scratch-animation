@@ -34,8 +34,8 @@
 
   // 题单里的 16 类：题数和简单、中等、困难的分布按题单原样统计。course 是已经做好的课程。
   const TOPICS = [
-    { name: '哈希表与数组', easy: 7, medium: 2, hard: 0, next: true },
-    { name: '双指针', easy: 6, medium: 4, hard: 1 },
+    { name: '哈希表与数组', easy: 7, medium: 2, hard: 0, course: 'hash-table' },
+    { name: '双指针', easy: 6, medium: 4, hard: 1, next: true },
     { name: '滑动窗口', easy: 3, medium: 3, hard: 1, course: 'sliding-window' },
     { name: '前缀和与前后缀分解', easy: 2, medium: 2, hard: 0 },
     { name: '二分查找', easy: 7, medium: 4, hard: 1 },
