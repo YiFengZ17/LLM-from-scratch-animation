@@ -13,6 +13,15 @@
  *   vars   右侧的变量 [[名字, 值], ...]
  *   note   这一帧的说明，可以用 `代码` 标记
  *
+ * DP 表（kind: 'grid'）的一帧：
+ *   rows   每一行的名字，比如 ['nums', 'dp']
+ *   cols   每一列的名字，通常是下标
+ *   cells  二维数组 cells[行][列]，还没算出来的格子写 null
+ *   cur    正在算的格子 [行, 列]
+ *   deps   它依赖的格子 [[行, 列], ...]
+ *   picks  被选中的格子（比如取 max 时赢的那一边）
+ *   vars、note  同上
+ *
  * 块的 HTML 由 Viz.html 生成，挂到页面上之后调用 Viz.mount(容器) 让按钮生效。
  * 帧之间只改类名和 CSS 变量，窗口和指针的移动由 CSS 过渡完成。
  */
@@ -44,17 +53,36 @@
     const id = nextId++;
     specs.set(id, spec);
     const frames = framesOf(spec);
-    const n = Math.max(...frames.map((f) => (f.cells || []).length), 1);
-    const cells = Array.from({ length: n }, (_, i) => '<div class="viz-cell" data-i="' + i + '"><span></span></div>').join('');
-    const idx = Array.from({ length: n }, (_, i) => '<span>' + i + '</span>').join('');
+    let stage;
+    let style;
+    if (spec.kind === 'grid') {
+      // 表格：左上角空着，第一行是列名，第一列是行名
+      const first = frames[0];
+      const nr = first.rows.length;
+      const nc = first.cols.length;
+      let cells = '<span class="viz-gh"></span>' + first.cols.map((c) => '<span class="viz-gh">' + esc(c) + '</span>').join('');
+      for (let r = 0; r < nr; r++) {
+        cells += '<span class="viz-gr">' + esc(first.rows[r]) + '</span>';
+        for (let c = 0; c < nc; c++) cells += '<span class="viz-gc" data-r="' + r + '" data-c="' + c + '"><b></b></span>';
+      }
+      stage = '<div class="viz-stage"><div class="viz-grid" aria-hidden="true">' + cells + '</div></div>';
+      style = '--n:' + (nc + 1) + ';--cols:' + nc;
+    } else {
+      const n = Math.max(...frames.map((f) => (f.cells || []).length), 1);
+      const cells = Array.from({ length: n }, (_, i) => '<div class="viz-cell" data-i="' + i + '"><span></span></div>').join('');
+      const idx = Array.from({ length: n }, (_, i) => '<span>' + i + '</span>').join('');
+      stage =
+        '<div class="viz-stage">' +
+        '<div class="viz-row"><div class="viz-win" aria-hidden="true"></div>' + cells + '</div>' +
+        '<div class="viz-idx" aria-hidden="true">' + idx + '</div>' +
+        '<div class="viz-ptrs" aria-hidden="true"></div></div>';
+      style = '--n:' + n;
+    }
     return (
-      '<figure class="viz viz-' + (size || 'large') + '" data-viz="' + id + '" style="--n:' + n + '">' +
+      '<figure class="viz viz-' + (size || 'large') + (spec.kind === 'grid' ? ' viz-is-grid' : '') + '" data-viz="' + id + '" style="' + style + '">' +
       '<figcaption class="viz-head"><span class="viz-title">' + esc(spec.title || '演示') + '</span>' +
       '<span class="viz-count" aria-live="polite"></span></figcaption>' +
-      '<div class="viz-body"><div class="viz-stage">' +
-      '<div class="viz-row"><div class="viz-win" aria-hidden="true"></div>' + cells + '</div>' +
-      '<div class="viz-idx" aria-hidden="true">' + idx + '</div>' +
-      '<div class="viz-ptrs" aria-hidden="true"></div></div>' +
+      '<div class="viz-body">' + stage +
       '<dl class="viz-vars"></dl></div>' +
       '<p class="viz-note"></p>' +
       '<div class="viz-ctrl">' +
@@ -67,13 +95,39 @@
     );
   }
 
+  // DP 表的一帧：填上已经算出来的值，标出正在算的格子和它依赖的格子
+  function showGrid(fig, f, prev) {
+    const has = (list, r, c) => (list || []).some((p) => p[0] === r && p[1] === c);
+    fig.querySelectorAll('.viz-gc').forEach((cell) => {
+      const r = Number(cell.dataset.r);
+      const c = Number(cell.dataset.c);
+      const v = f.cells[r] ? f.cells[r][c] : null;
+      const before = prev && prev.cells[r] ? prev.cells[r][c] : null;
+      const filled = v !== null && v !== undefined && v !== '';
+      cell.querySelector('b').textContent = filled ? String(v) : '';
+      let cls = 'viz-gc' + (filled ? ' is-filled' : '');
+      if (f.cur && f.cur[0] === r && f.cur[1] === c) cls += ' is-cur';
+      if (has(f.deps, r, c)) cls += ' is-dep';
+      if (has(f.picks, r, c)) cls += ' is-pick';
+      if (filled && String(v) !== String(before)) cls += ' is-new';
+      cell.className = cls;
+    });
+  }
+
   // 把第 k 帧画到 fig 上
   function show(fig, k) {
     const spec = specs.get(Number(fig.dataset.viz));
     const frames = framesOf(spec);
     k = Math.max(0, Math.min(frames.length - 1, k));
+    const prevK = Number(fig.dataset.frame);
     fig.dataset.frame = k;
     const f = frames[k];
+    if (spec.kind === 'grid') {
+      // 只有往后走一帧时才让新填的格子闪一下，跳着看时不闪
+      showGrid(fig, f, prevK === k - 1 ? frames[prevK] : f);
+      showCommon(fig, f, k, frames.length);
+      return;
+    }
     const cells = f.cells || [];
 
     fig.querySelectorAll('.viz-cell').forEach((c, i) => {
@@ -116,14 +170,18 @@
       ptrs.innerHTML = html;
     }
     fig.style.setProperty('--rows', Math.max(1, ...Object.values(seen)));
+    showCommon(fig, f, k, frames.length);
+  }
 
+  // 两种画法共用的部分：变量、说明、帧号、按钮
+  function showCommon(fig, f, k, total) {
     fig.querySelector('.viz-vars').innerHTML = (f.vars || []).map(([name, v]) => '<div><dt>' + esc(name) + '</dt><dd>' + esc(v) + '</dd></div>').join('');
     fig.querySelector('.viz-note').innerHTML = md(f.note || '');
-    fig.querySelector('.viz-count').textContent = k + 1 + ' / ' + frames.length;
-    fig.querySelector('.viz-bar i').style.width = ((k + 1) / frames.length) * 100 + '%';
+    fig.querySelector('.viz-count').textContent = k + 1 + ' / ' + total;
+    fig.querySelector('.viz-bar i').style.width = ((k + 1) / total) * 100 + '%';
     fig.querySelector('[data-act="prev"]').disabled = k === 0;
     fig.querySelector('[data-act="first"]').disabled = k === 0;
-    fig.querySelector('[data-act="next"]').disabled = k === frames.length - 1;
+    fig.querySelector('[data-act="next"]').disabled = k === total - 1;
   }
 
   function stop(fig) {

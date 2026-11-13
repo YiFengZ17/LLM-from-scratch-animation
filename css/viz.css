@@ -242,6 +242,92 @@
   transition: width 0.3s ease;
 }
 
+/* DP 表：第一行是列名，第一列是行名 */
+.viz-grid {
+  --gcell: min(44px, calc((100cqw - 4.5em) / var(--cols)));
+  display: grid;
+  grid-template-columns: auto repeat(var(--cols), var(--gcell));
+  gap: 0;
+  align-items: stretch;
+}
+
+.viz-gh,
+.viz-gr {
+  color: var(--viz-muted);
+  font-family: var(--viz-font);
+  font-size: 10.5px;
+}
+
+.viz-gh {
+  padding-bottom: 4px;
+  text-align: center;
+}
+
+.viz-gr {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.viz-gc {
+  display: grid;
+  place-items: center;
+  height: var(--gcell);
+  margin: 0 -1px -1px 0;
+  border: 1px solid var(--viz-rule);
+  background: var(--viz-cell);
+  color: var(--viz-strong);
+  font-family: var(--viz-font);
+  font-size: calc(var(--gcell) * 0.32);
+  font-variant-numeric: tabular-nums;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.viz-gc b {
+  font-weight: 500;
+}
+
+/* 还没算出来的格子只留一个淡淡的底 */
+.viz-gc:not(.is-filled) {
+  background: color-mix(in srgb, var(--viz-cell) 60%, transparent);
+}
+
+/* 它依赖的格子：描一圈 */
+.viz-gc.is-dep {
+  position: relative;
+  z-index: 1;
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--viz-in) 85%, transparent);
+  background: color-mix(in srgb, var(--viz-in) 14%, var(--viz-cell));
+}
+
+/* 取 max / min 时赢的那一边 */
+.viz-gc.is-pick {
+  box-shadow: inset 0 0 0 2px var(--viz-hit);
+  background: color-mix(in srgb, var(--viz-hit) 22%, var(--viz-cell));
+}
+
+/* 正在算的格子 */
+.viz-gc.is-cur {
+  position: relative;
+  z-index: 2;
+  box-shadow: inset 0 0 0 2px var(--viz-accent);
+  background: color-mix(in srgb, var(--viz-accent) 26%, var(--viz-cell));
+}
+
+.viz-gc.is-new b {
+  animation: viz-pop 0.4s ease-out;
+}
+
+@keyframes viz-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
 /* 旁白里的小图：格子小一些，变量放到下面 */
 .viz-small {
   --cell: min(34px, calc((100cqw - 2px) / var(--n)));
@@ -262,11 +348,20 @@
   gap: 6px;
 }
 
+.viz-small .viz-grid {
+  --gcell: min(34px, calc((100cqw - 4em) / var(--cols)));
+}
+
 @media (prefers-reduced-motion: reduce) {
   .viz-win,
   .viz-ptr,
   .viz-cell,
+  .viz-gc,
   .viz-bar i {
     transition: none;
+  }
+
+  .viz-gc.is-new b {
+    animation: none;
   }
 }
