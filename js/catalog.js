@@ -34,7 +34,7 @@
 
   // 题单里的 16 类：题数和简单、中等、困难的分布按题单原样统计。course 是已经做好的课程。
   const TOPICS = [
-    { name: '哈希表与数组', easy: 7, medium: 2, hard: 0 },
+    { name: '哈希表与数组', easy: 7, medium: 2, hard: 0, next: true },
     { name: '双指针', easy: 6, medium: 4, hard: 1 },
     { name: '滑动窗口', easy: 3, medium: 3, hard: 1, course: 'sliding-window' },
     { name: '前缀和与前后缀分解', easy: 2, medium: 2, hard: 0 },
@@ -46,7 +46,7 @@
     { name: '图论', easy: 5, medium: 7, hard: 0 },
     { name: 'Trie 前缀树', easy: 0, medium: 1, hard: 0 },
     { name: '回溯与枚举', easy: 2, medium: 8, hard: 1 },
-    { name: '动态规划', easy: 7, medium: 19, hard: 3, next: true },
+    { name: '动态规划', easy: 7, medium: 19, hard: 3, course: 'dynamic-programming' },
     { name: '贪心、排序与区间', easy: 9, medium: 6, hard: 0 },
     { name: '字符串与模拟', easy: 4, medium: 2, hard: 0 },
     { name: '数学与位运算', easy: 13, medium: 0, hard: 0 },

@@ -1157,6 +1157,27 @@ a.tile:hover {
   margin-top: 10px;
 }
 
+/* 子模块的组名：压在时间线上 */
+.timeline .tl-group {
+  position: relative;
+  margin-top: 34px;
+  padding-left: 72px;
+  color: var(--cool);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+}
+
+.timeline .tl-group:first-child {
+  margin-top: 0;
+}
+
+@media (max-width: 680px) {
+  .timeline .tl-group {
+    padding-left: 60px;
+  }
+}
+
 .chapter-row {
   position: relative;
   display: grid;

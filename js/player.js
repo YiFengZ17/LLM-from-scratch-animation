@@ -375,6 +375,8 @@
     el.sideLabel.textContent = course.title;
     el.outline.innerHTML = chapters
       .map((ch, c) => {
+        // 子模块：组的第一章前面加一行组名
+        const group = ch.group && (c === 0 || chapters[c - 1].group !== ch.group) ? '<li class="outline-group">' + esc(ch.group) + '</li>' : '';
         const groups = [];
         ch.steps.forEach((step, i) => {
           const last = groups[groups.length - 1];
@@ -395,6 +397,7 @@
         });
         const num = ch.label || pad2(c + 1);
         return (
+          group +
           '<li><button class="outline-chapter" type="button" aria-expanded="false" aria-controls="ol-' + c + '" data-chapter="' + c + '">' +
           '<span class="outline-num">' + esc(num) + '</span><span class="outline-name">' + esc(ch.title) + '</span>' +
           '<span class="outline-count" data-ch="' + c + '" data-from="0" data-size="' + ch.steps.length + '"></span></button>' +

@@ -181,6 +181,7 @@
   const SPECIMEN = [
     { course: 'sliding-window', lang: 'rust', chapter: 4, steps: 'code' },
     { course: 'transformer', chapter: 1, steps: [6, 7] },
+    { course: 'dynamic-programming', lang: 'python', chapter: 5, steps: 'code' },
     { course: 'sliding-window', lang: 'cpp', chapter: 5, steps: 'code' },
     { course: 'sliding-window', lang: 'java', chapter: 1, steps: 'code' },
   ];
@@ -479,10 +480,12 @@
 
     const rows = c.chapters
       .map((ch, i) => {
+        const group = ch.group && (i === 0 || c.chapters[i - 1].group !== ch.group) ? '<li class="tl-group"><span>' + esc(ch.group) + '</span></li>' : '';
         const s = S.seenInChapter(c.id, ch);
         const done = s >= ch.steps.length;
         const level = ch.problem ? '<span class="level is-' + ch.problem.level + '">' + LEVEL[ch.problem.level] + '</span>' : '';
         return (
+          group +
           '<li><a class="chapter-row' + (done ? ' is-done' : '') + (started && i === resume ? ' is-last' : '') + '" href="#' + c.id + '-' + (i + 1) + '">' +
           '<span class="num">' + esc(label(ch, i)) + '</span>' +
           '<div><h3>' + esc(ch.title) + level + '</h3><p>' + esc(ch.summary || '') + '</p></div>' +

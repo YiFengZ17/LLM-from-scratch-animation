@@ -428,6 +428,15 @@ kbd {
   border-top: 1px solid var(--rule);
 }
 
+/* 子模块的组名 */
+.outline-group {
+  padding: 14px 16px 6px 12px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
 .outline > li > ol {
   padding-bottom: 6px;
 }

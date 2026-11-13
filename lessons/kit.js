@@ -14,7 +14,29 @@
   const PYTHON = 'https://docs.python.org/3/';
   const PAPER = 'https://arxiv.org/abs/1706.03762';
 
+  // 算法课共用：[代码, 念头] 写成打字操作；各语言的文件名和终端命令；力扣题目链接
+  const algo = {
+    code: (...pairs) => pairs.map(([type, note]) => (note ? { type, note } : { type })),
+    RUN: {
+      python: 'python3 solution.py',
+      c: 'gcc solution.c -o solution && ./solution',
+      cpp: 'g++ -std=c++17 solution.cpp -o solution && ./solution',
+      java: 'javac Main.java && java Main',
+      rust: 'rustc --edition 2021 main.rs && ./main',
+    },
+    FILES: {
+      python: ['solution.py'],
+      c: ['solution.c'],
+      cpp: ['solution.cpp'],
+      java: ['Main.java'],
+      rust: ['main.rs'],
+    },
+    leetcode: (slug) => 'https://leetcode.cn/problems/' + slug + '/',
+  };
+
   root.LessonKit = {
+    algo,
+
     // 引用 PyTorch 官方文档
     ref: (api, page, quote, zh) => ({ ref: { api, url: PYTORCH + page, source: 'PyTorch 文档', quote, zh } }),
 

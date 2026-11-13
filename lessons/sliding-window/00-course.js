@@ -3,8 +3,7 @@
  * 第一章讲概念和模板，之后每章一道题，从简单到困难。每道题有五种语言的写法。
  *
  * 这个文件除了定义课程，还放了各章共用的东西（root.SW）：
- *   code(...)   把 [代码, 说明] 一对对写成打字操作
- *   RUN、FILES  各语言的终端命令和文件名
+ *   code、RUN、FILES、leetcode  来自 lessons/kit.js 的算法课公共写法，这里转交一下
  *   trace.*     图形演示的帧：在样例输入上真的跑一遍算法，每走一步记一帧
  */
 (function (root) {
@@ -25,26 +24,7 @@
     ],
   });
 
-  // [代码, 说明] → 打字操作。说明会以注释的样子出现在这一行上方（或旁白栏的逐行说明里）
-  const code = (...pairs) => pairs.map(([type, note]) => (note ? { type, note } : { type }));
-
-  const RUN = {
-    python: 'python3 solution.py',
-    c: 'gcc solution.c -o solution && ./solution',
-    cpp: 'g++ -std=c++17 solution.cpp -o solution && ./solution',
-    java: 'javac Main.java && java Main',
-    rust: 'rustc --edition 2021 main.rs && ./main',
-  };
-
-  const FILES = {
-    python: ['solution.py'],
-    c: ['solution.c'],
-    cpp: ['solution.cpp'],
-    java: ['Main.java'],
-    rust: ['main.rs'],
-  };
-
-  const leetcode = (slug) => 'https://leetcode.cn/problems/' + slug + '/';
+  const { code, RUN, FILES, leetcode } = root.LessonKit.algo;
 
   /* ---------------------------------------------------------- 演示的帧 */
 
