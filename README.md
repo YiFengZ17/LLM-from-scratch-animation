@@ -12,7 +12,7 @@
 |---|---|---|---|
 | 从零手写 Transformer | 嵌入、位置编码、层归一化、前馈网络、多头注意力、编码器、解码器、组装成模型 | 6 章 95 页，`model.py` 写到 241 行 | Python（PyTorch） |
 | 滑动窗口 | 概念与模板，然后 643、1876、219、209、3、438、76 七道题，从简单到困难 | 8 章 69 页 | Python、C、C++、Java、Rust |
-| 动态规划 | 概念（从递归到填表、四步法），然后「一维递推」70、746、1137、198 和「子数组」53、674、152；其余 5 个子模块制作中 | 8 章 61 页 | Python、C、C++、Java、Rust |
+| 动态规划 | 概念（从递归到填表、四步法），然后 7 个子模块 29 道题：一维递推、子数组、股票、网格、背包、子序列与字符串、区间与计数 | 30 章 219 页 | Python、C、C++、Java、Rust |
 
 每章最后都会真实运行一次。页面终端里的输出，全部用真实的 PyTorch、Python、gcc、g++、Java、Rust 跑过，逐行一致（41 次运行）。
 
@@ -71,7 +71,7 @@ js/main.js                  路由：按网址显示展厅或编辑器
 lessons/kit.js              课程脚本的公共写法：引用各语言官方文档和论文
 lessons/transformer/        从零手写 Transformer（00-course.js 定义课程，01-06 是各章）
 lessons/sliding-window/     滑动窗口（00-course.js 定义课程和演示的帧，01 概念，02-08 七道题）
-lessons/dynamic-programming/ 动态规划（00-course.js 定义课程和 DP 表的帧，01 概念，之后每题一个文件，按子模块分组）
+lessons/dynamic-programming/ 动态规划（00-course.js 定义课程，00-course.js 与 00-traces.js 生成 DP 表的帧，01 概念，02-30 每题一个文件，按子模块分组）
 tools/verify.mjs            校验所有课程和语言，并导出每章写完后的文件
 tools/check-outputs.mjs     真实运行每章最后的终端命令，和脚本里写的输出逐行比较
 tools/bundle.mjs            合并成单个 HTML 文件
@@ -163,7 +163,7 @@ node tools/verify.mjs /tmp/out
 node tools/check-outputs.mjs /tmp/out python3
 ```
 
-在每章导出的目录里执行脚本里写的终端命令（`python3`、`gcc`、`g++`、`javac`、`rustc`），和脚本里写的输出逐行比较。第二个参数是 Python 解释器，Transformer 课程需要装好 PyTorch。
+在每章导出的目录里执行脚本里写的终端命令（`python3`、`gcc`、`g++`、`javac`、`rustc`），和脚本里写的输出逐行比较。第二个参数是 Python 解释器，Transformer 课程需要装好 PyTorch。第三个参数可选，只核对 id 以它开头的章，比如 `dp-1143`。
 
 ## 以后的方向
 

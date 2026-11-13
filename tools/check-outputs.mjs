@@ -10,9 +10,9 @@
 import { execSync } from 'node:child_process';
 import { Catalog, eachVariant, chapterDir } from './load.mjs';
 
-const [outDir, python = 'python3'] = process.argv.slice(2);
+const [outDir, python = 'python3', only = ''] = process.argv.slice(2);
 if (!outDir) {
-  console.error('用法：node tools/check-outputs.mjs 输出目录 [python 路径]');
+  console.error('用法：node tools/check-outputs.mjs 输出目录 [python 路径] [只核对 id 以此开头的章]');
   process.exit(2);
 }
 
@@ -20,6 +20,7 @@ let bad = 0;
 let checked = 0;
 for (const { course, lang, chapters } of eachVariant()) {
   for (const { lesson } of chapters) {
+    if (only && !lesson.id.startsWith(only)) continue;
     const runs = lesson.steps.flatMap((s) => (s.ops || []).filter((o) => o.run));
     if (!runs.length) continue;
     const last = runs[runs.length - 1];
