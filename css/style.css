@@ -340,24 +340,43 @@ kbd {
   padding: 0;
 }
 
+/* 目录分三层：章 › 小节 › 页。章和小节都可以折叠，前面的箭头跟着转 */
+.outline-chapter,
 .outline-section {
   display: flex;
   align-items: center;
   gap: 4px;
   width: 100%;
-  height: 22px;
-  padding: 0 12px 0 6px;
-  color: var(--strong);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
   text-align: left;
 }
 
+.outline-chapter {
+  height: 30px;
+  padding: 0 12px 0 6px;
+  color: var(--fg);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.outline-chapter.is-current {
+  color: var(--strong);
+}
+
+.outline-section {
+  height: 22px;
+  padding: 0 12px 0 22px;
+  color: var(--fg);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.outline-chapter:hover,
 .outline-section:hover {
   background: var(--hover);
 }
 
+.outline-chapter::before,
 .outline-section::before {
   content: '';
   flex: none;
@@ -369,13 +388,39 @@ kbd {
   transition: transform 0.15s ease;
 }
 
+.outline-chapter[aria-expanded='false']::before,
 .outline-section[aria-expanded='false']::before {
   transform: rotate(-90deg);
 }
 
-.outline-count {
-  margin-left: auto;
+/* 章号：等宽数字，当前章用强调色 */
+.outline-num {
+  flex: none;
+  margin-right: 4px;
   color: var(--muted);
+  font-family: var(--font-code);
+  font-size: 11.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.outline-chapter.is-current .outline-num {
+  color: var(--accent);
+}
+
+.outline-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.outline-count {
+  flex: none;
+  margin-left: auto;
+  padding-left: 8px;
+  color: var(--muted);
+  font-size: 11px;
   font-weight: 400;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
@@ -385,12 +430,16 @@ kbd {
   border-top: 1px solid var(--rule);
 }
 
+.outline > li > ol {
+  padding-bottom: 6px;
+}
+
 .outline-step {
   position: relative;
   display: block;
   width: 100%;
   text-align: left;
-  padding: 0 12px 0 40px;
+  padding: 0 12px 0 56px;
   color: var(--muted);
   line-height: 22px;
   white-space: nowrap;
@@ -402,7 +451,7 @@ kbd {
 .outline-step::before {
   content: '';
   position: absolute;
-  left: 25px;
+  left: 41px;
   top: 8px;
   width: 6px;
   height: 6px;

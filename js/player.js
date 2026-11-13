@@ -11,6 +11,9 @@
  *   done     这一步写完了
  * 「继续」键在三个阶段分别是：开始写代码 / 直接看结果 / 下一步。
  * 这样旁白和打字不会同时抢注意力：先读，再看。
+ *
+ * 一门课分好几章（window.LESSONS 里按顺序排列），后一章接着前一章结束时的代码写。
+ * 一章的最后一页按「继续」直接进入下一章；网址末尾的 #ch2 这类标记指向某一章。
  */
 (function () {
   'use strict';
@@ -64,7 +67,7 @@
   };
 
   const SPEEDS = [0.5, 0.75, 1, 1.5, 2];
-  const STORE_KEY = 'transformer-typing-v2';
+  const STORE_KEY = 'transformer-typing-v3';
   const DOC = '@doc'; // 文档预览标签页的内部名字
 
   // 自动播放时每一页停多久（毫秒），想调节奏改这里。
@@ -83,13 +86,17 @@
   const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const narrow = window.matchMedia ? window.matchMedia('(max-width: 1120px)') : { matches: false };
 
-  const lesson = window.LESSONS[0];
-  const steps = lesson.steps;
-  const docSteps = steps.map((s, i) => (s.doc ? i : -1)).filter((i) => i >= 0);
+  const chapters = window.LESSONS;
 
-  let compiled;
+  // 各章依次编译：后一章从前一章结束时的状态开始
+  const compiledAll = [];
   try {
-    compiled = E.compile(lesson);
+    let previous = null;
+    for (const ch of chapters) {
+      const c = E.compile(ch, previous);
+      compiledAll.push(c);
+      previous = c.after[c.after.length - 1];
+    }
   } catch (err) {
     el.narrTitle.textContent = '课程脚本有错误';
     el.narrBody.innerHTML = '<div class="error"></div>';
@@ -97,7 +104,15 @@
     return;
   }
 
-  const prefs = Object.assign({ speed: 1, step: 0 }, loadPrefs());
+  // 当前这一章。切换章节时由 useChapter 一起更新
+  let ci = 0;
+  let lesson = chapters[0];
+  let steps = lesson.steps;
+  let docSteps = [];
+  let compiled = compiledAll[0];
+
+  // steps：每章上次停在哪一页；seen：每章最远看到了哪一页
+  const prefs = Object.assign({ speed: 1, chapter: 0, steps: {}, seen: {} }, loadPrefs());
   if (!SPEEDS.includes(prefs.speed)) prefs.speed = 1;
   prefs.auto = false; // 自动播放每次打开都从「关」开始，免得页面自己动起来
 
@@ -125,13 +140,24 @@
   }
 
   function savePrefs() {
-    prefs.step = index;
+    prefs.chapter = ci;
+    prefs.steps[lesson.id] = index;
+    prefs.seen[lesson.id] = Math.max(seenOf(ci), index);
     try {
-      localStorage.setItem(STORE_KEY, JSON.stringify({ speed: prefs.speed, step: prefs.step }));
+      localStorage.setItem(STORE_KEY, JSON.stringify({ speed: prefs.speed, chapter: prefs.chapter, steps: prefs.steps, seen: prefs.seen }));
     } catch (e) {
       /* 存不了也不影响使用 */
     }
   }
+
+  // 某一章最远看到了第几页（没看过是 -1）
+  function seenOf(c) {
+    const saved = prefs.seen[chapters[c].id];
+    const n = typeof saved === 'number' ? saved : -1;
+    return c === ci ? Math.max(n, index) : n;
+  }
+
+  const pad2 = (n) => String(n).padStart(2, '0');
 
   const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' };
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ESC[c]);
@@ -280,7 +306,7 @@
 
   function renderNarration() {
     const step = steps[index];
-    el.narrCount.textContent = index + 1 + ' / ' + steps.length;
+    el.narrCount.textContent = '第 ' + (ci + 1) + ' 章 · ' + (index + 1) + ' / ' + steps.length;
     el.narrSection.textContent = step.section;
 
     if (step.doc) {
@@ -289,7 +315,7 @@
       const items = docSteps.map((i) => {
         const seen = i < index ? ' class="is-seen"' : '';
         const cur = i === index ? ' aria-current="step"' : '';
-        return '<li' + seen + '><button type="button" data-step="' + i + '"' + cur + '>' + esc(steps[i].title) + '</button></li>';
+        return '<li' + seen + '><button type="button" data-step="' + ci + ':' + i + '"' + cur + '>' + esc(steps[i].title) + '</button></li>';
       });
       el.narrBody.innerHTML = '<ol class="klist">' + items.join('') + '</ol>';
     } else {
@@ -301,39 +327,63 @@
 
   /* -------------------------------------------------------------- 目录 */
 
+  // 目录分三层：章 › 小节 › 页。按钮上的 data-step 是「章:页」
   function buildOutline() {
-    const groups = [];
-    steps.forEach((step, i) => {
-      const last = groups[groups.length - 1];
-      if (last && last.name === step.section) last.items.push(i);
-      else groups.push({ name: step.section, items: [i] });
-    });
-    el.outline.innerHTML = groups
-      .map((g, k) => {
-        const items = g.items.map((i) => '<li><button class="outline-step" type="button" data-step="' + i + '">' + esc(steps[i].title) + '</button></li>');
+    el.outline.innerHTML = chapters
+      .map((ch, c) => {
+        const groups = [];
+        ch.steps.forEach((step, i) => {
+          const last = groups[groups.length - 1];
+          if (last && last.name === step.section) last.items.push(i);
+          else groups.push({ name: step.section, items: [i] });
+        });
+        const sections = groups.map((g, k) => {
+          const id = 'ol-' + c + '-' + k;
+          const items = g.items.map(
+            (i) => '<li><button class="outline-step" type="button" data-step="' + c + ':' + i + '">' + esc(ch.steps[i].title) + '</button></li>'
+          );
+          return (
+            '<li><button class="outline-section" type="button" aria-expanded="true" aria-controls="' + id + '">' +
+            '<span class="outline-name">' + esc(g.name) + '</span>' +
+            '<span class="outline-count" data-ch="' + c + '" data-from="' + g.items[0] + '" data-size="' + g.items.length + '"></span></button>' +
+            '<ol id="' + id + '">' + items.join('') + '</ol></li>'
+          );
+        });
         return (
-          '<li><button class="outline-section" type="button" aria-expanded="true" aria-controls="sec-' + k + '">' +
-          esc(g.name) + '<span class="outline-count" data-from="' + g.items[0] + '" data-size="' + g.items.length + '"></span></button>' +
-          '<ol id="sec-' + k + '">' + items.join('') + '</ol></li>'
+          '<li><button class="outline-chapter" type="button" aria-expanded="false" aria-controls="ol-' + c + '" data-chapter="' + c + '">' +
+          '<span class="outline-num">' + pad2(c + 1) + '</span><span class="outline-name">' + esc(ch.title) + '</span>' +
+          '<span class="outline-count" data-ch="' + c + '" data-from="0" data-size="' + ch.steps.length + '"></span></button>' +
+          '<ol id="ol-' + c + '" hidden>' + sections.join('') + '</ol></li>'
         );
       })
       .join('');
   }
 
+  function setFolder(button, open) {
+    const list = button.nextElementSibling;
+    list.hidden = !open;
+    button.setAttribute('aria-expanded', String(open));
+  }
+
+  // 只展开当前这一章，其余各章收起
+  function focusChapterInOutline() {
+    el.outline.querySelectorAll('.outline-chapter').forEach((b) => setFolder(b, Number(b.dataset.chapter) === ci));
+  }
+
   function renderOutline() {
     el.outline.querySelectorAll('[data-step]').forEach((b) => {
-      const i = Number(b.dataset.step);
-      b.classList.toggle('is-seen', i < index);
-      if (i === index) {
+      const [c, i] = b.dataset.step.split(':').map(Number);
+      const current = c === ci && i === index;
+      b.classList.toggle('is-seen', !current && i <= seenOf(c));
+      if (current) {
         b.setAttribute('aria-current', 'step');
-        // 当前页所在的小节如果被折叠了，展开它
-        const list = b.closest('ol');
-        if (list.hidden) {
-          list.hidden = false;
-          list.previousElementSibling.setAttribute('aria-expanded', 'true');
-        }
+        // 当前页所在的章和小节如果被折叠了，展开它们
+        const section = b.closest('ol');
+        if (section.hidden) setFolder(section.previousElementSibling, true);
+        const chapter = section.parentElement.closest('ol');
+        if (chapter.hidden) setFolder(chapter.previousElementSibling, true);
         // 只在目录自己的滚动区里滚动，不带动整个页面
-        const top = b.offsetTop - el.sidebar.offsetTop;
+        const top = b.getBoundingClientRect().top - el.sidebar.getBoundingClientRect().top + el.sidebar.scrollTop;
         const view = el.sidebar;
         if (top < view.scrollTop + 40 || top > view.scrollTop + view.clientHeight - 60) {
           view.scrollTop = Math.max(0, top - view.clientHeight / 2);
@@ -342,12 +392,14 @@
         b.removeAttribute('aria-current');
       }
     });
-    // 每个小节读完了几页
-    el.outline.querySelectorAll('.outline-count').forEach((c) => {
-      const from = Number(c.dataset.from);
-      const size = Number(c.dataset.size);
-      c.textContent = Math.min(size, Math.max(0, index - from + 1)) + '/' + size;
+    // 每章、每个小节看过了几页
+    el.outline.querySelectorAll('.outline-count').forEach((n) => {
+      const from = Number(n.dataset.from);
+      const size = Number(n.dataset.size);
+      const seen = seenOf(Number(n.dataset.ch));
+      n.textContent = Math.min(size, Math.max(0, seen - from + 1)) + '/' + size;
     });
+    el.outline.querySelectorAll('.outline-chapter').forEach((b) => b.classList.toggle('is-current', Number(b.dataset.chapter) === ci));
   }
 
   function toggleOutline() {
@@ -536,7 +588,7 @@
   // 前置知识页只显示当前这一页；写代码时点标签回来查，则把所有页连起来显示
   function renderDoc() {
     const onDocStep = Boolean(steps[index].doc) && !peek;
-    const key = onDocStep ? 'step:' + index : 'all';
+    const key = ci + ':' + (onDocStep ? index : 'all');
     if (docShown === key) return;
     docShown = key;
 
@@ -654,11 +706,22 @@
   function renderControls() {
     const step = steps[index];
     const last = index === steps.length - 1;
+    const lastChapter = ci === chapters.length - 1;
     const nextIsCode = !last && step.doc && !steps[index + 1].doc;
-    el.back.disabled = index === 0;
+    el.back.disabled = index === 0 && ci === 0;
     el.go.dataset.phase = phase;
     el.goLabel.textContent =
-      phase === 'reading' ? '开始写代码' : phase === 'typing' ? '直接看结果' : last ? '从头再看' : nextIsCode ? '开始写代码' : '下一步';
+      phase === 'reading'
+        ? '开始写代码'
+        : phase === 'typing'
+          ? '直接看结果'
+          : last
+            ? lastChapter
+              ? '从头再看'
+              : '进入第 ' + (ci + 2) + ' 章'
+            : nextIsCode
+              ? '开始写代码'
+              : '下一步';
     el.pause.disabled = !canPause();
     el.pause.textContent = paused ? '恢复' : '暂停';
     el.pause.setAttribute('aria-pressed', String(paused));
@@ -684,7 +747,7 @@
   }
 
   function renderAll(instant) {
-    el.chapter.textContent = '第 1 章　' + lesson.title;
+    el.chapter.textContent = '第 ' + (ci + 1) + ' 章　' + lesson.title;
     el.progress.style.width = ((index + 1) / steps.length) * 100 + '%';
     el.app.classList.toggle('is-doc-step', Boolean(steps[index].doc));
     renderEditor(instant);
@@ -768,17 +831,34 @@
     const step = steps[index];
     if (phase === 'reading') {
       wait(readingMs(step), startTyping);
-    } else if (phase === 'done' && index < steps.length - 1) {
+    } else if (phase === 'done' && !(index === steps.length - 1 && ci === chapters.length - 1)) {
       const typed = (step.ops || []).length > 0;
       wait(typed ? PACE.afterTyping : readingMs(step), advance);
     }
     renderControls();
   }
 
+  // 换到第 c 章：之后的 steps、compiled 等都指向这一章
+  function useChapter(c) {
+    ci = c;
+    lesson = chapters[c];
+    steps = lesson.steps;
+    docSteps = steps.map((s, i) => (s.doc ? i : -1)).filter((i) => i >= 0);
+    compiled = compiledAll[c];
+    docShown = null;
+    focusChapterInOutline();
+    try {
+      history.replaceState(null, '', '#ch' + (c + 1));
+    } catch (e) {
+      /* 改不了网址也不影响使用 */
+    }
+  }
+
   // mode = 'play'：从上一步的结果出发，准备播放这一步
   // mode = 'show'：直接显示这一步写完后的样子（后退、目录跳转、恢复进度）
-  function enter(i, mode) {
+  function enter(c, i, mode) {
     stopTimers();
+    if (c !== ci || !compiled) useChapter(c);
     index = i;
     peek = null;
     gen = null;
@@ -836,12 +916,14 @@
   function advance() {
     if (phase === 'reading') startTyping();
     else if (phase === 'typing') finish();
-    else if (index < steps.length - 1) enter(index + 1, 'play');
-    else enter(0, 'play');
+    else if (index < steps.length - 1) enter(ci, index + 1, 'play');
+    else if (ci < chapters.length - 1) enter(ci + 1, 0, 'play');
+    else enter(0, 0, 'play');
   }
 
   function back() {
-    if (index > 0) enter(index - 1, 'show');
+    if (index > 0) enter(ci, index - 1, 'show');
+    else if (ci > 0) enter(ci - 1, chapters[ci - 1].steps.length - 1, 'show');
   }
 
   /* ---------------------------------------------------------- 主题选择 */
@@ -913,16 +995,15 @@
   function jump(e) {
     const b = e.target.closest('[data-step]');
     if (!b) return;
-    enter(Number(b.dataset.step), 'show');
+    const [c, i] = b.dataset.step.split(':').map(Number);
+    enter(c, i, 'show');
     setDrawer(false);
   }
   el.narrBody.addEventListener('click', jump);
   el.outline.addEventListener('click', (e) => {
-    const head = e.target.closest('.outline-section');
+    const head = e.target.closest('.outline-chapter, .outline-section');
     if (!head) return jump(e);
-    const list = head.nextElementSibling;
-    list.hidden = !list.hidden;
-    head.setAttribute('aria-expanded', String(!list.hidden));
+    setFolder(head, head.nextElementSibling.hidden);
   });
 
   el.speed.addEventListener('click', () => {
@@ -1040,8 +1121,29 @@
 
   /* -------------------------------------------------------------- 启动 */
 
+  // 网址里的 #ch3 指向第 3 章
+  function chapterFromHash() {
+    const m = /^#ch(\d+)$/.exec(location.hash);
+    const c = m ? Number(m[1]) - 1 : -1;
+    return c >= 0 && c < chapters.length ? c : -1;
+  }
+
+  // 打开某一章：回到上次在这一章停下的地方；没来过就从第一页开始播放
+  function openChapter(c) {
+    const saved = prefs.steps[chapters[c].id];
+    const i = typeof saved === 'number' ? Math.min(Math.max(0, saved), chapters[c].steps.length - 1) : 0;
+    enter(c, i, i === 0 ? 'play' : 'show');
+  }
+
+  window.addEventListener('hashchange', () => {
+    const c = chapterFromHash();
+    if (c >= 0 && c !== ci) openChapter(c);
+  });
+
   buildOutline();
   renderTheme();
-  const start = Math.min(Math.max(0, prefs.step | 0), steps.length - 1);
-  enter(start, start === 0 ? 'play' : 'show');
+  compiled = null; // 让第一次 enter 走一遍 useChapter
+  const fromHash = chapterFromHash();
+  const saved = Number.isInteger(prefs.chapter) ? prefs.chapter : 0;
+  openChapter(fromHash >= 0 ? fromHash : Math.min(Math.max(0, saved), chapters.length - 1));
 })();
