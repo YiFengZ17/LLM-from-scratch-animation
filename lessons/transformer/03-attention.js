@@ -7,11 +7,13 @@
 (function (root) {
   'use strict';
 
-  const { ROADMAP, ref, py, paper } = root.LessonKit;
+  const { ref, py, paper } = root.LessonKit;
+  const ROADMAP = root.Catalog.byId.transformer.roadmap;
 
   const lesson = {
     id: '03-attention',
     title: '多头注意力',
+    summary: 'Transformer 的核心：每个词按相关程度，汇总句子里其他词的信息。',
     files: ['model.py', 'scratch.py'],
     docName: '前置知识.md',
     roadmap: ROADMAP,
@@ -148,11 +150,11 @@
           '回到 `model.py` 末尾。多头注意力需要三个构造参数：`d_model`、头数 `h`，以及 Dropout 的比例。',
         ],
         ops: [
-          { type: '\n\nclass MultiHeadAttentionBlock(nn.Module):' },
+          { type: '\n\nclass MultiHeadAttentionBlock(nn.Module):', note: '第五个零件：多头注意力。' },
           { pause: 300 },
-          { type: '\n\n    def __init__(self, d_model: int, h: int, dropout: float) -> None:\n        super().__init__()' },
+          { type: '\n\n    def __init__(self, d_model: int, h: int, dropout: float) -> None:\n        super().__init__()', note: '要造它，需要向量长度 d_model、头数 h，以及 Dropout 的比例。' },
           { pause: 300 },
-          { type: '\n        self.d_model = d_model\n        self.h = h' },
+          { type: '\n        self.d_model = d_model\n        self.h = h', note: '前两个数先存下来，切头时要用。' },
         ],
       },
       {
@@ -169,9 +171,9 @@
           '然后算出每个头的维度 `d_k`。`//` 是整数除法。',
         ],
         ops: [
-          { type: '\n        assert d_model % h == 0, "d_model is not divisible by h"' },
+          { type: '\n        assert d_model % h == 0, "d_model is not divisible by h"', note: '切头的前提是 d_model 能被 h 整除，否则每个头分不到整数个维度。先用 assert 把这个前提写下来，不满足时马上报一个看得懂的错。' },
           { pause: 400 },
-          { type: '\n\n        self.d_k = d_model // h' },
+          { type: '\n\n        self.d_k = d_model // h', note: '前提成立，就算出每个头分到的维度 d_k。' },
         ],
       },
       {
@@ -188,9 +190,9 @@
           '四个都是 `d_model` 到 `d_model`：先整体算，再切头。',
         ],
         ops: [
-          { type: '\n        self.w_q = nn.Linear(d_model, d_model, bias=False)\n        self.w_k = nn.Linear(d_model, d_model, bias=False)\n        self.w_v = nn.Linear(d_model, d_model, bias=False)' },
+          { type: '\n        self.w_q = nn.Linear(d_model, d_model, bias=False)\n        self.w_k = nn.Linear(d_model, d_model, bias=False)\n        self.w_v = nn.Linear(d_model, d_model, bias=False)', note: 'Q、K、V 各需要一个矩阵把输入变过去。论文公式里只有矩阵没有偏置，所以 `bias=False`；先整体算出完整的 512 维，之后再切头。' },
           { pause: 400 },
-          { type: '\n        self.w_o = nn.Linear(d_model, d_model, bias=False)\n        self.dropout = nn.Dropout(dropout)' },
+          { type: '\n        self.w_o = nn.Linear(d_model, d_model, bias=False)\n        self.dropout = nn.Dropout(dropout)', note: '还要一个 W_o 把各个头的结果混合起来，再造一个 Dropout 给注意力权重用。' },
         ],
       },
 
@@ -204,9 +206,9 @@
           { shape: ['(batch, seq_len, d_model)', '(batch, seq_len, d_model)'], label: '形状' },
         ],
         ops: [
-          { type: '\n\n    def forward(self, q, k, v, mask):' },
+          { type: '\n\n    def forward(self, q, k, v, mask):', note: '`forward` 分开收 q、k、v：自注意力时三个是同一个 x，交叉注意力时 k、v 来自编码器。另外还要一个掩码。' },
           { pause: 300 },
-          { type: '\n        query = self.w_q(q) # (batch, seq_len, d_model) --> (batch, seq_len, d_model)\n        key = self.w_k(k) # (batch, seq_len, d_model) --> (batch, seq_len, d_model)\n        value = self.w_v(v) # (batch, seq_len, d_model) --> (batch, seq_len, d_model)' },
+          { type: '\n        query = self.w_q(q) # (batch, seq_len, d_model) --> (batch, seq_len, d_model)\n        key = self.w_k(k) # (batch, seq_len, d_model) --> (batch, seq_len, d_model)\n        value = self.w_v(v) # (batch, seq_len, d_model) --> (batch, seq_len, d_model)', note: '第一步，三个输入各自乘上对应的矩阵，得到完整的 Q、K、V，形状不变。' },
         ],
       },
       {
@@ -229,11 +231,11 @@
           { shape: ['(batch, seq_len, d_model)', '(batch, seq_len, h, d_k)', '(batch, h, seq_len, d_k)'], label: '形状' },
         ],
         ops: [
-          { type: '\n\n        # (batch, seq_len, d_model) --> (batch, seq_len, h, d_k) --> (batch, h, seq_len, d_k)' },
+          { type: '\n\n        # (batch, seq_len, d_model) --> (batch, seq_len, h, d_k) --> (batch, h, seq_len, d_k)', note: '接下来切头。先把形状的变化写下来：最后一维拆成 h × d_k，再把头挪到前面。' },
           { pause: 400 },
-          { type: '\n        query = query.view(query.shape[0], query.shape[1], self.h, self.d_k).transpose(1, 2)' },
+          { type: '\n        query = query.view(query.shape[0], query.shape[1], self.h, self.d_k).transpose(1, 2)', note: '`view` 把最后一维 512 拆成 h 个 d_k；`transpose(1, 2)` 交换第 1、2 维，让头排到 seq_len 前面。' },
           { pause: 300 },
-          { type: '\n        key = key.view(key.shape[0], key.shape[1], self.h, self.d_k).transpose(1, 2)\n        value = value.view(value.shape[0], value.shape[1], self.h, self.d_k).transpose(1, 2)' },
+          { type: '\n        key = key.view(key.shape[0], key.shape[1], self.h, self.d_k).transpose(1, 2)\n        value = value.view(value.shape[0], value.shape[1], self.h, self.d_k).transpose(1, 2)', note: 'key 和 value 照样切。' },
         ],
       },
 
@@ -257,11 +259,12 @@
           {
             type: '\n\n    @staticmethod\n    def attention(query, key, value, mask, dropout: nn.Dropout):',
             after: 'self.w_o = nn.Linear(d_model, d_model, bias=False)\n        self.dropout = nn.Dropout(dropout)',
+            note: '下面该算注意力本身了。它是一段独立的公式，不依赖零件里存的东西，所以回到 `forward` 上方，单独写成一个静态方法。',
           },
           { pause: 400 },
-          { type: '\n        d_k = query.shape[-1]\n        # (batch, h, seq_len, d_k) --> (batch, h, seq_len, seq_len)', after: 'def attention(query, key, value, mask, dropout: nn.Dropout):' },
+          { type: '\n        d_k = query.shape[-1]\n        # (batch, h, seq_len, d_k) --> (batch, h, seq_len, seq_len)', after: 'def attention(query, key, value, mask, dropout: nn.Dropout):', note: '公式里要除以 √d_k，先从 query 的最后一维取出 d_k，再写下分数矩阵的形状。' },
           { pause: 400 },
-          { type: '\n        attention_scores = (query @ key.transpose(-2, -1)) / math.sqrt(d_k)', after: '# (batch, h, seq_len, d_k) --> (batch, h, seq_len, seq_len)' },
+          { type: '\n        attention_scores = (query @ key.transpose(-2, -1)) / math.sqrt(d_k)', after: '# (batch, h, seq_len, d_k) --> (batch, h, seq_len, seq_len)', note: '分数就是 Q 乘以 K 的转置，再除以 √d_k。`transpose(-2, -1)` 交换最后两维，`@` 是矩阵乘法。' },
         ],
       },
       {
@@ -283,9 +286,9 @@
           '有掩码时，把 `mask == 0` 的位置填成 -10<sup>9</sup>。方法名末尾的下划线表示直接修改原张量。然后在最后一维上做 softmax，每一行变成权重。',
         ],
         ops: [
-          { type: '\n        if mask is not None:\n            attention_scores.masked_fill_(mask == 0, -1e9)', after: '/ math.sqrt(d_k)' },
+          { type: '\n        if mask is not None:\n            attention_scores.masked_fill_(mask == 0, -1e9)', after: '/ math.sqrt(d_k)', note: '有掩码时，不许看的位置（mask 为 0）要在 softmax 之前填成一个极小的数，这样 softmax 之后它们的权重就是 0。' },
           { pause: 400 },
-          { type: '\n        attention_scores = attention_scores.softmax(dim=-1) # (batch, h, seq_len, seq_len)', after: 'masked_fill_(mask == 0, -1e9)' },
+          { type: '\n        attention_scores = attention_scores.softmax(dim=-1) # (batch, h, seq_len, seq_len)', after: 'masked_fill_(mask == 0, -1e9)', note: '然后在最后一维上做 softmax，每一行变成加起来等于 1 的权重。' },
         ],
       },
       {
@@ -297,9 +300,9 @@
           { shape: ['(batch, h, seq_len, seq_len)', '(batch, h, seq_len, d_k)'], label: '形状' },
         ],
         ops: [
-          { type: '\n        if dropout is not None:\n            attention_scores = dropout(attention_scores)', after: 'attention_scores.softmax(dim=-1) # (batch, h, seq_len, seq_len)' },
+          { type: '\n        if dropout is not None:\n            attention_scores = dropout(attention_scores)', after: 'attention_scores.softmax(dim=-1) # (batch, h, seq_len, seq_len)', note: '权重也过一次 Dropout。' },
           { pause: 400 },
-          { type: '\n        # (batch, h, seq_len, seq_len) --> (batch, h, seq_len, d_k)\n        return (attention_scores @ value), attention_scores', after: 'attention_scores = dropout(attention_scores)' },
+          { type: '\n        # (batch, h, seq_len, seq_len) --> (batch, h, seq_len, d_k)\n        return (attention_scores @ value), attention_scores', after: 'attention_scores = dropout(attention_scores)', note: '最后权重乘以 V，得到每个位置汇总后的向量。权重本身也一起返回，之后可以画出来看。' },
         ],
       },
 
@@ -311,7 +314,7 @@
           '回到 `forward` 末尾调用刚写的静态方法，通过类名调用。',
           '权重存到 `self.attention_scores`，运行验证时会用到。',
         ],
-        ops: [{ type: '\n\n        x, self.attention_scores = MultiHeadAttentionBlock.attention(query, key, value, mask, self.dropout)' }],
+        ops: [{ type: '\n\n        x, self.attention_scores = MultiHeadAttentionBlock.attention(query, key, value, mask, self.dropout)', note: '静态方法写好了，回到 `forward` 末尾调用它。权重存到 `self.attention_scores` 里，运行验证时要看。' }],
       },
       {
         section: '拼回各头',
@@ -328,11 +331,11 @@
           { shape: ['(batch, h, seq_len, d_k)', '(batch, seq_len, d_model)'], label: '形状' },
         ],
         ops: [
-          { type: '\n\n        # (batch, h, seq_len, d_k) --> (batch, seq_len, h, d_k) --> (batch, seq_len, d_model)' },
+          { type: '\n\n        # (batch, h, seq_len, d_k) --> (batch, seq_len, h, d_k) --> (batch, seq_len, d_model)', note: '现在每个头各有一份结果，要拼回去。先写下形状：头挪回原位，再并成 d_model。' },
           { pause: 400 },
-          { type: '\n        x = x.transpose(1, 2).contiguous().view(x.shape[0], -1, self.h * self.d_k)' },
+          { type: '\n        x = x.transpose(1, 2).contiguous().view(x.shape[0], -1, self.h * self.d_k)', note: '`transpose(1, 2)` 把头挪回 seq_len 后面；`view` 要求内存连续，transpose 之后不连续了，所以中间先 `contiguous()`；-1 让 PyTorch 自己算出 seq_len。' },
           { pause: 500 },
-          { type: '\n\n        # (batch, seq_len, d_model) --> (batch, seq_len, d_model)\n        return self.w_o(x)' },
+          { type: '\n\n        # (batch, seq_len, d_model) --> (batch, seq_len, d_model)\n        return self.w_o(x)', note: '拼回来之后乘上 W_o，把各个头混合起来，就是这个零件的输出。' },
         ],
       },
 
@@ -359,11 +362,11 @@
         ],
         ops: [
           { clear: 'scratch.py' },
-          { type: 'import torch\nfrom model import MultiHeadAttentionBlock\n\ntorch.set_grad_enabled(False)\ntorch.manual_seed(0)' },
+          { type: 'import torch\nfrom model import MultiHeadAttentionBlock\n\ntorch.set_grad_enabled(False)\ntorch.manual_seed(0)', note: '导入多头注意力，关掉梯度。这次的输入是随机数，再固定随机种子，每次运行的结果才一样。' },
           { pause: 400 },
-          { type: '\n\nx = torch.randn(1, 4, 512)\nmha = MultiHeadAttentionBlock(d_model=512, h=8, dropout=0.0)\nprint(mha(x, x, x, None).shape)\nprint(mha.attention_scores.shape)\nprint(mha.attention_scores[0, 0].sum(dim=-1))' },
+          { type: '\n\nx = torch.randn(1, 4, 512)\nmha = MultiHeadAttentionBlock(d_model=512, h=8, dropout=0.0)\nprint(mha(x, x, x, None).shape)\nprint(mha.attention_scores.shape)\nprint(mha.attention_scores[0, 0].sum(dim=-1))', note: '先不加掩码：看输出的形状、权重的形状，以及权重每一行之和是不是 1。Dropout 设成 0，免得它把权重随机置零。' },
           { pause: 500 },
-          { type: '\n\nmask = torch.tril(torch.ones(4, 4))\nmha(x, x, x, mask)\nprint(mha.attention_scores[0, 0])' },
+          { type: '\n\nmask = torch.tril(torch.ones(4, 4))\nmha(x, x, x, mask)\nprint(mha.attention_scores[0, 0])', note: '再加上下三角掩码，打印第一个头的权重矩阵，右上角应该全是 0。' },
           { pause: 600 },
           {
             run: 'python scratch.py',
@@ -395,5 +398,5 @@
     ],
   };
 
-  (root.LESSONS = root.LESSONS || []).push(lesson);
+  root.Catalog.addChapter('transformer', lesson);
 })(typeof window !== 'undefined' ? window : globalThis);

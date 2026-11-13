@@ -6,11 +6,13 @@
 (function (root) {
   'use strict';
 
-  const { ROADMAP, ref, py, paper } = root.LessonKit;
+  const { ref, py, paper } = root.LessonKit;
+  const ROADMAP = root.Catalog.byId.transformer.roadmap;
 
   const lesson = {
     id: '04-encoder',
     title: '残差连接与编码器',
+    summary: '用残差连接把注意力和前馈网络串起来，叠成编码器。',
     files: ['model.py', 'scratch.py'],
     docName: '前置知识.md',
     roadmap: ROADMAP,
@@ -140,11 +142,11 @@
           '这里第一次用到自己写的零件来造新零件：`LayerNormalization` 是第 2 章写的。',
         ],
         ops: [
-          { type: '\n\nclass ResidualConnection(nn.Module):' },
+          { type: '\n\nclass ResidualConnection(nn.Module):', note: '第六个零件：残差连接，它要包在每个子层外面。' },
           { pause: 300 },
-          { type: '\n\n    def __init__(self, features: int, dropout: float) -> None:\n        super().__init__()' },
+          { type: '\n\n    def __init__(self, features: int, dropout: float) -> None:\n        super().__init__()', note: '它里面有一个层归一化和一个 Dropout，所以要知道向量长度和 Dropout 的比例。' },
           { pause: 300 },
-          { type: '\n        self.dropout = nn.Dropout(dropout)\n        self.norm = LayerNormalization(features)' },
+          { type: '\n        self.dropout = nn.Dropout(dropout)\n        self.norm = LayerNormalization(features)', note: '把两样东西造好：Dropout，和第 2 章写的层归一化。' },
         ],
       },
       {
@@ -156,9 +158,9 @@
           { formula: ['x + Dropout(Sublayer(LayerNorm(x)))'] },
         ],
         ops: [
-          { type: '\n\n    def forward(self, x, sublayer):' },
+          { type: '\n\n    def forward(self, x, sublayer):', note: '`forward` 除了 x，还收一个子层。残差连接不关心子层具体是什么，只负责把它包起来。' },
           { pause: 400 },
-          { type: '\n        return x + self.dropout(sublayer(self.norm(x)))' },
+          { type: '\n        return x + self.dropout(sublayer(self.norm(x)))', note: '按 Pre-LN 的顺序从里往外：先归一化，再进子层，再 Dropout，最后加回原来的 x。' },
         ],
       },
 
@@ -171,11 +173,11 @@
           '参数的类型注解写的正是前两章的零件。',
         ],
         ops: [
-          { type: '\n\nclass EncoderBlock(nn.Module):' },
+          { type: '\n\nclass EncoderBlock(nn.Module):', note: '第七个零件：一层编码器。' },
           { pause: 300 },
-          { type: '\n\n    def __init__(self, features: int, self_attention_block: MultiHeadAttentionBlock, feed_forward_block: FeedForwardBlock, dropout: float) -> None:\n        super().__init__()' },
+          { type: '\n\n    def __init__(self, features: int, self_attention_block: MultiHeadAttentionBlock, feed_forward_block: FeedForwardBlock, dropout: float) -> None:\n        super().__init__()', note: '一层编码器由一个自注意力和一个前馈网络组成。这两个零件在外面造好再传进来，所以构造参数里有它们。' },
           { pause: 300 },
-          { type: '\n        self.self_attention_block = self_attention_block\n        self.feed_forward_block = feed_forward_block' },
+          { type: '\n        self.self_attention_block = self_attention_block\n        self.feed_forward_block = feed_forward_block', note: '把传进来的两个子层存下来。' },
         ],
       },
       {
@@ -190,7 +192,7 @@
           ),
           '两个子层各要一个残差连接。用列表推导式造两个，装进 `nn.ModuleList`（前置知识第 5 页）。',
         ],
-        ops: [{ type: '\n        self.residual_connections = nn.ModuleList([ResidualConnection(features, dropout) for _ in range(2)])' }],
+        ops: [{ type: '\n        self.residual_connections = nn.ModuleList([ResidualConnection(features, dropout) for _ in range(2)])', note: '两个子层各要一个残差连接。造两个装进 `nn.ModuleList`，它们的参数才能被 PyTorch 找到。' }],
       },
       {
         section: '编码器',
@@ -206,11 +208,11 @@
           { shape: ['(batch, seq_len, d_model)', '(batch, seq_len, d_model)'], label: '形状' },
         ],
         ops: [
-          { type: '\n\n    def forward(self, x, src_mask):' },
+          { type: '\n\n    def forward(self, x, src_mask):', note: '`forward` 收输入和原句的掩码。' },
           { pause: 400 },
-          { type: '\n        x = self.residual_connections[0](x, lambda x: self.self_attention_block(x, x, x, src_mask))' },
+          { type: '\n        x = self.residual_connections[0](x, lambda x: self.self_attention_block(x, x, x, src_mask))', note: '第一个子层是自注意力。可残差连接只会把 x 一个参数传给子层，而注意力要 q、k、v 和掩码。用 lambda 包一层：收一个 x，再把它同时当作 q、k、v 传进去。' },
           { pause: 400 },
-          { type: '\n        x = self.residual_connections[1](x, self.feed_forward_block)\n        return x' },
+          { type: '\n        x = self.residual_connections[1](x, self.feed_forward_block)\n        return x', note: '第二个子层是前馈网络，它本来就只收一个输入，直接传进去。然后返回。' },
         ],
       },
       {
@@ -221,13 +223,13 @@
           '因为用的是 Pre-LN，最后补一个层归一化（前置知识第 2 页）。',
         ],
         ops: [
-          { type: '\n\nclass Encoder(nn.Module):' },
+          { type: '\n\nclass Encoder(nn.Module):', note: '下一个零件：把 N 层编码器叠起来。' },
           { pause: 300 },
-          { type: '\n\n    def __init__(self, features: int, layers: nn.ModuleList) -> None:\n        super().__init__()\n        self.layers = layers\n        self.norm = LayerNormalization(features)' },
+          { type: '\n\n    def __init__(self, features: int, layers: nn.ModuleList) -> None:\n        super().__init__()\n        self.layers = layers\n        self.norm = LayerNormalization(features)', note: '它收一组造好的层，存下来；因为用的是 Pre-LN，最后一层的输出没有归一化过，所以再准备一个层归一化。' },
           { pause: 500 },
-          { type: '\n\n    def forward(self, x, mask):\n        for layer in self.layers:\n            x = layer(x, mask)' },
+          { type: '\n\n    def forward(self, x, mask):\n        for layer in self.layers:\n            x = layer(x, mask)', note: '`forward` 里让数据依次穿过每一层，上一层的输出就是下一层的输入。' },
           { pause: 400 },
-          { type: '\n        return self.norm(x)' },
+          { type: '\n        return self.norm(x)', note: '全部穿过之后，再做最后一次归一化。' },
         ],
       },
 
@@ -242,11 +244,11 @@
         ],
         ops: [
           { clear: 'scratch.py' },
-          { type: 'import torch\nimport torch.nn as nn\nfrom model import MultiHeadAttentionBlock, FeedForwardBlock, EncoderBlock, Encoder\n\ntorch.set_grad_enabled(False)' },
+          { type: 'import torch\nimport torch.nn as nn\nfrom model import MultiHeadAttentionBlock, FeedForwardBlock, EncoderBlock, Encoder\n\ntorch.set_grad_enabled(False)', note: '导入编码器用到的四个零件。等会儿要把两层装进 `nn.ModuleList`，所以还要导入 `torch.nn`。' },
           { pause: 400 },
-          { type: '\n\nblocks = [EncoderBlock(512, MultiHeadAttentionBlock(512, 8, 0.1), FeedForwardBlock(512, 2048, 0.1), 0.1) for _ in range(2)]\nencoder = Encoder(512, nn.ModuleList(blocks))' },
+          { type: '\n\nblocks = [EncoderBlock(512, MultiHeadAttentionBlock(512, 8, 0.1), FeedForwardBlock(512, 2048, 0.1), 0.1) for _ in range(2)]\nencoder = Encoder(512, nn.ModuleList(blocks))', note: '造两层编码器：每一层都新造自己的注意力和前馈网络，然后叠成编码器。' },
           { pause: 400 },
-          { type: '\n\nx = torch.randn(1, 4, 512)\nprint(encoder(x, None).shape)\nprint(sum(p.numel() for p in blocks[0].parameters()))' },
+          { type: '\n\nx = torch.randn(1, 4, 512)\nprint(encoder(x, None).shape)\nprint(sum(p.numel() for p in blocks[0].parameters()))', note: '看输出形状是不是不变，再数一层编码器的参数量，应该是 3,150,336。' },
           { pause: 600 },
           { run: 'python scratch.py', output: ['torch.Size([1, 4, 512])', '3150336'] },
         ],
@@ -266,5 +268,5 @@
     ],
   };
 
-  (root.LESSONS = root.LESSONS || []).push(lesson);
+  root.Catalog.addChapter('transformer', lesson);
 })(typeof window !== 'undefined' ? window : globalThis);

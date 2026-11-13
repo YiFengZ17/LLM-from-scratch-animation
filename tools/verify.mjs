@@ -1,75 +1,56 @@
-// 校验课程脚本，并把每个文件的最终内容导出来。
+// 校验课程脚本，并把每一章写完后的文件导出来。
 //
 //   node tools/verify.mjs [输出目录]
 //
-// 做三件事：
+// 对每门课的每种语言做三件事：
 //   1. 把每一步都跑一遍，锚点写错、操作写错会在这里报出来；
-//   2. 检查语法高亮切出来的行和源码能一一对上；
-//   3. 把写完之后的文件存到输出目录，方便拿去真的运行一遍。
-//
-// 各章按顺序接续：后一章从前一章结束时的代码开始写。
-// 每一章导出的是那一章结束时的全部文件，所以在各章的目录里运行 scratch.py，用的就是当时的 model.py。
-import { createRequire } from 'node:module';
-import { mkdirSync, writeFileSync, readdirSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+//   2. 逐格播放，检查动画结果和直接跳转的结果相同，语法高亮切出来的行和源码一一对上；
+//   3. 把每章结束时的全部文件存到 输出目录/课程/[语言/]章/，方便拿去真的运行一遍（见 check-outputs.mjs）。
+// 接续写的课程（如 Transformer）后一章从前一章结束时的代码开始。
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { Catalog, Engine, Highlight, eachVariant, chapterDir } from './load.mjs';
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const require = createRequire(import.meta.url);
-
-require(join(root, 'js/highlight.js'));
-require(join(root, 'js/engine.js'));
-for (const f of readdirSync(join(root, 'lessons')).sort()) {
-  if (f.endsWith('.js')) require(join(root, 'lessons', f));
-}
-
-const { Engine, Highlight, LESSONS } = globalThis;
 const outDir = process.argv[2];
 let failed = false;
-let previous = null; // 上一章结束时的状态
 
-for (const lesson of LESSONS) {
-  let compiled;
-  try {
-    compiled = Engine.compile(lesson, previous);
-  } catch (e) {
-    console.error(`✗ ${lesson.id}: ${e.message}`);
-    failed = true;
-    break;
-  }
-
-  // 动画一格一格播完，必须和一口气算出来的结果相同；每一格的高亮也要和源码对得上
-  let st = Engine.clone(compiled.initial);
-  let frames = 0;
-  let typingMs = 0;
-  lesson.steps.forEach((step, i) => {
-    for (const ms of Engine.runStep(st, step, Engine.rng(i + 1))) {
-      frames++;
-      typingMs += ms;
-      const text = st.files[st.active];
-      const lines = Highlight.tokenize(text);
-      const rebuilt = lines.map((l) => l.map((t) => t.t).join('')).join('\n');
-      if (rebuilt !== text) {
-        console.error(`✗ ${lesson.id} 第 ${i + 1} 步：高亮结果和源码不一致`);
-        failed = true;
+try {
+  for (const { course, lang, chapters } of eachVariant()) {
+    const label = course.id + (lang ? ' · ' + Catalog.LANGS[lang].name : '');
+    let frames = 0;
+    let typingMs = 0;
+    for (const { lesson, compiled } of chapters) {
+      const st = Engine.clone(compiled.initial);
+      lesson.steps.forEach((step, i) => {
+        for (const ms of Engine.runStep(st, step, Engine.rng(i + 1))) {
+          frames++;
+          typingMs += ms;
+          if (!st.active) continue;
+          const text = st.files[st.active];
+          const lines = Highlight.tokenize(text, Catalog.langOfFile(st.active));
+          if (lines.map((l) => l.map((t) => t.t).join('')).join('\n') !== text) {
+            console.error(`✗ ${label} ${lesson.id} 第 ${i + 1} 步：高亮结果和源码不一致`);
+            failed = true;
+          }
+        }
+        if (JSON.stringify(st) !== JSON.stringify(compiled.after[i])) {
+          console.error(`✗ ${label} ${lesson.id} 第 ${i + 1} 步：动画结果和直接计算的结果不一致`);
+          failed = true;
+        }
+      });
+      const final = compiled.after[compiled.after.length - 1];
+      if (outDir) {
+        const dir = chapterDir(outDir, course, lang, lesson);
+        mkdirSync(dir, { recursive: true });
+        for (const name of final.order) writeFileSync(join(dir, name), final.files[name] + '\n');
       }
     }
-    if (JSON.stringify(st) !== JSON.stringify(compiled.after[i])) {
-      console.error(`✗ ${lesson.id} 第 ${i + 1} 步：动画结果和直接计算的结果不一致`);
-      failed = true;
-    }
-  });
-
-  const final = compiled.after[compiled.after.length - 1];
-  previous = final;
-  console.log(`✓ ${lesson.id}: ${lesson.steps.length} 步，${frames} 帧，1 倍速打字合计约 ${Math.round(typingMs / 1000)} 秒`);
-  for (const name of final.order) {
-    console.log(`    ${name}: ${final.files[name].split('\n').length} 行`);
-    if (outDir) {
-      mkdirSync(join(outDir, lesson.id), { recursive: true });
-      writeFileSync(join(outDir, lesson.id, name), final.files[name] + '\n');
-    }
+    const pages = chapters.reduce((n, c) => n + c.lesson.steps.length, 0);
+    console.log(`✓ ${label}：${chapters.length} 章 ${pages} 页，${frames} 帧，1 倍速打字合计约 ${Math.round(typingMs / 1000)} 秒`);
   }
+} catch (e) {
+  console.error('✗ ' + e.message);
+  failed = true;
 }
 
 process.exit(failed ? 1 : 0);

@@ -7,11 +7,13 @@
 (function (root) {
   'use strict';
 
-  const { ROADMAP, ref, paper } = root.LessonKit;
+  const { ref, paper } = root.LessonKit;
+  const ROADMAP = root.Catalog.byId.transformer.roadmap;
 
   const lesson = {
     id: '02-norm-ffn',
     title: '层归一化与前馈网络',
+    summary: '把每个向量拉回同一尺度；每个位置各自做一次「放大、激活、缩回」。',
     files: ['model.py', 'scratch.py'],
     docName: '前置知识.md',
     roadmap: ROADMAP,
@@ -119,9 +121,9 @@
           '构造参数 `features` 是向量的长度，也就是 `d_model`。`eps` 给一个默认值 10<sup>-6</sup>。',
         ],
         ops: [
-          { type: '\n\nclass LayerNormalization(nn.Module):' },
+          { type: '\n\nclass LayerNormalization(nn.Module):', note: '第三个零件：层归一化。还是先继承 `nn.Module`。' },
           { pause: 300 },
-          { type: '\n\n    def __init__(self, features: int, eps: float = 10**-6) -> None:\n        super().__init__()' },
+          { type: '\n\n    def __init__(self, features: int, eps: float = 10**-6) -> None:\n        super().__init__()', note: '它要知道每个向量有多长（`features`），还要一个防止除以 0 的小数 `eps`，默认给 10⁻⁶。' },
         ],
       },
       {
@@ -143,9 +145,9 @@
           '`eps` 直接存下来。α 初始全 1、bias 初始全 0，用 `nn.Parameter` 包起来，它们就会被登记为参数，训练时会被更新。',
         ],
         ops: [
-          { type: '\n        self.eps = eps' },
+          { type: '\n        self.eps = eps', note: '`eps` 先存下来，公式里要用。' },
           { pause: 300 },
-          { type: '\n        self.alpha = nn.Parameter(torch.ones(features))\n        self.bias = nn.Parameter(torch.zeros(features))' },
+          { type: '\n        self.alpha = nn.Parameter(torch.ones(features))\n        self.bias = nn.Parameter(torch.zeros(features))', note: '归一化之后还要可学习的缩放和平移：缩放 α 一开始全是 1，平移 bias 一开始全是 0。它们要参与训练，所以用 `nn.Parameter` 包起来。' },
         ],
       },
       {
@@ -168,11 +170,11 @@
           { shape: ['(batch, seq_len, d_model)', '(batch, seq_len, 1)'], label: '形状' },
         ],
         ops: [
-          { type: '\n\n    def forward(self, x):\n        # x: (batch, seq_len, hidden_size)' },
+          { type: '\n\n    def forward(self, x):\n        # x: (batch, seq_len, hidden_size)', note: '`forward` 里套公式。先写下输入的形状。' },
           { pause: 400 },
-          { type: '\n        mean = x.mean(dim=-1, keepdim=True) # (batch, seq_len, 1)' },
+          { type: '\n        mean = x.mean(dim=-1, keepdim=True) # (batch, seq_len, 1)', note: '公式要的第一样东西是平均值：每个向量自己那 d_model 个数的平均，所以在最后一维上算；`keepdim=True` 保留这一维，下面才能和 x 直接相减。' },
           { pause: 300 },
-          { type: '\n        std = x.std(dim=-1, keepdim=True) # (batch, seq_len, 1)' },
+          { type: '\n        std = x.std(dim=-1, keepdim=True) # (batch, seq_len, 1)', note: '第二样是标准差，同样在最后一维上算、保留维度。' },
         ],
       },
       {
@@ -183,7 +185,7 @@
           '乘 `self.alpha`、加 `self.bias` 也是广播：它们的长度 `d_model` 对上最后一维。',
           { shape: ['(batch, seq_len, d_model)', '(batch, seq_len, d_model)'], label: '形状' },
         ],
-        ops: [{ type: '\n        return self.alpha * (x - mean) / (std + self.eps) + self.bias' }],
+        ops: [{ type: '\n        return self.alpha * (x - mean) / (std + self.eps) + self.bias', note: '原料齐了，照公式写出来：减去平均值，除以（标准差加 eps），再乘 α、加 bias。' }],
       },
 
       /* ============================================================ 前馈网络 */
@@ -200,11 +202,11 @@
           '两次线性变换各用一个 `nn.Linear`：第一个把 `d_model` 放大到 `d_ff`，第二个再变回 `d_model`。按数据经过的顺序写：放大、Dropout、缩回。',
         ],
         ops: [
-          { type: '\n\nclass FeedForwardBlock(nn.Module):' },
+          { type: '\n\nclass FeedForwardBlock(nn.Module):', note: '第四个零件：前馈网络。' },
           { pause: 300 },
-          { type: '\n\n    def __init__(self, d_model: int, d_ff: int, dropout: float) -> None:\n        super().__init__()' },
+          { type: '\n\n    def __init__(self, d_model: int, d_ff: int, dropout: float) -> None:\n        super().__init__()', note: '它要知道输入输出的长度 d_model、中间放大到多长 d_ff，以及 Dropout 的比例。' },
           { pause: 400 },
-          { type: '\n        self.linear_1 = nn.Linear(d_model, d_ff)\n        self.dropout = nn.Dropout(dropout)\n        self.linear_2 = nn.Linear(d_ff, d_model)' },
+          { type: '\n        self.linear_1 = nn.Linear(d_model, d_ff)\n        self.dropout = nn.Dropout(dropout)\n        self.linear_2 = nn.Linear(d_ff, d_model)', note: '按数据经过的顺序把零件造好：先放大（d_model → d_ff），中间一个 Dropout，再缩回（d_ff → d_model）。' },
         ],
       },
       {
@@ -221,18 +223,18 @@
           { shape: ['(batch, seq_len, d_model)', '(batch, seq_len, d_ff)', '(batch, seq_len, d_model)'], label: '形状' },
         ],
         ops: [
-          { type: '\n\n    def forward(self, x):\n        # (batch, seq_len, d_model) --> (batch, seq_len, d_ff) --> (batch, seq_len, d_model)' },
+          { type: '\n\n    def forward(self, x):\n        # (batch, seq_len, d_model) --> (batch, seq_len, d_ff) --> (batch, seq_len, d_model)', note: '`forward` 先写下形状的变化：d_model 放大到 d_ff，再变回 d_model。' },
           { pause: 400 },
-          { type: '\n        return self.linear_1(x)' },
+          { type: '\n        return self.linear_1(x)', note: '数据第一个经过的是 `linear_1`，先把最里面这一层写出来。' },
           { pause: 500 },
-          { type: 'torch.relu(', before: 'self.linear_1(x)' },
-          { type: ')', after: 'torch.relu(self.linear_1(x)' },
+          { type: 'torch.relu(', before: 'self.linear_1(x)', note: '放大之后要过 ReLU，在它外面包一层 `torch.relu(`。' },
+          { type: ')', after: 'torch.relu(self.linear_1(x)', note: '把括号补上。' },
           { pause: 400 },
-          { type: 'self.dropout(', before: 'torch.relu(self.linear_1(x))' },
-          { type: ')', after: 'self.dropout(torch.relu(self.linear_1(x))' },
+          { type: 'self.dropout(', before: 'torch.relu(self.linear_1(x))', note: 'ReLU 之后是 Dropout，再往外包一层。' },
+          { type: ')', after: 'self.dropout(torch.relu(self.linear_1(x))', note: '补上括号。' },
           { pause: 400 },
-          { type: 'self.linear_2(', before: 'self.dropout(torch.relu(self.linear_1(x)))' },
-          { type: ')', after: 'self.linear_2(self.dropout(torch.relu(self.linear_1(x)))' },
+          { type: 'self.linear_2(', before: 'self.dropout(torch.relu(self.linear_1(x)))', note: '最后缩回 d_model：最外面包上 `linear_2`。' },
+          { type: ')', after: 'self.linear_2(self.dropout(torch.relu(self.linear_1(x)))', note: '补上最后一个括号。整行从里往外读，正好是数据流过的顺序。' },
         ],
       },
 
@@ -253,11 +255,11 @@
         ],
         ops: [
           { clear: 'scratch.py' },
-          { type: 'import torch\nfrom model import LayerNormalization, FeedForwardBlock\n\ntorch.set_grad_enabled(False)' },
+          { type: 'import torch\nfrom model import LayerNormalization, FeedForwardBlock\n\ntorch.set_grad_enabled(False)', note: '导入这一章的两个零件。测试只做前向计算，用不到梯度，所以紧接着把梯度关掉。' },
           { pause: 400 },
-          { type: '\n\nx = torch.tensor([[[1., 2., 3., 4.]]])\nnorm = LayerNormalization(features=4)\nprint(norm(x))' },
+          { type: '\n\nx = torch.tensor([[[1., 2., 3., 4.]]])\nnorm = LayerNormalization(features=4)\nprint(norm(x))', note: '层归一化用前置知识里手算过的例子 [1, 2, 3, 4]，看输出是不是 [-1.162, -0.387, 0.387, 1.162]。' },
           { pause: 400 },
-          { type: '\n\nffn = FeedForwardBlock(d_model=512, d_ff=2048, dropout=0.1)\ny = torch.randn(1, 3, 512)\nprint(ffn(y).shape)\nprint(sum(p.numel() for p in ffn.parameters()))' },
+          { type: '\n\nffn = FeedForwardBlock(d_model=512, d_ff=2048, dropout=0.1)\ny = torch.randn(1, 3, 512)\nprint(ffn(y).shape)\nprint(sum(p.numel() for p in ffn.parameters()))', note: '前馈网络看两件事：形状不变；参数量和前置知识里的表一致，应该是 2,099,712。' },
           { pause: 600 },
           {
             run: 'python scratch.py',
@@ -280,5 +282,5 @@
     ],
   };
 
-  (root.LESSONS = root.LESSONS || []).push(lesson);
+  root.Catalog.addChapter('transformer', lesson);
 })(typeof window !== 'undefined' ? window : globalThis);

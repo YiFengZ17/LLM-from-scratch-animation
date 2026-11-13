@@ -13,14 +13,16 @@ const out = args.find((a) => !a.startsWith('--')) || join(root, 'dist/index.html
 const read = (p) => readFileSync(join(root, p), 'utf8');
 
 let html = read('index.html')
-  .replace(/<link rel="stylesheet" href="([^"]+)">/g, (_, href) => `<style>\n${read(href)}</style>`)
-  .replace(/<script src="([^"]+)"><\/script>/g, (_, src) => `<script>\n${read(src)}</script>`);
+  .replace(/<link rel="stylesheet" href="([^"]+)">/g, (tag, href) => (/^https?:/.test(href) ? tag : `<style>\n${read(href)}</style>`))
+  .replace(/<script src="([^"]+)"><\/script>/g, (tag, src) => (/^https?:/.test(src) ? tag : `<script>\n${read(src)}</script>`));
 
 if (fragment) {
   const title = html.match(/<title>[^<]*<\/title>/)[0];
-  const style = html.match(/<style>[\s\S]*?<\/style>/)[0];
+  const head = html.match(/<head>([\s\S]*)<\/head>/)[1];
+  const links = head.match(/<link [^>]*>/g) || [];
+  const styles = head.match(/<style>[\s\S]*?<\/style>/g) || [];
   const body = html.match(/<body>([\s\S]*)<\/body>/)[1];
-  html = `${title}\n${style}\n${body.trim()}\n`;
+  html = `${title}\n${links.join('\n')}\n${styles.join('\n')}\n${body.trim()}\n`;
 }
 
 mkdirSync(dirname(out), { recursive: true });

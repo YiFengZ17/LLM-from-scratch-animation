@@ -1,0 +1,272 @@
+/*
+ * 图形演示的外观。编辑器和展厅都会用到：颜色取 --viz-* 变量，
+ * 默认指向编辑器主题的颜色，展厅里另外覆盖。
+ */
+.viz {
+  --viz-fg: var(--fg, #cccccc);
+  --viz-strong: var(--strong, #e7e7e7);
+  --viz-muted: var(--muted, #969696);
+  --viz-rule: var(--rule-strong, #454545);
+  --viz-bg: var(--ed, #1e1e1e);
+  --viz-cell: var(--side, #252526);
+  --viz-accent: var(--accent, #3794ff);
+  --viz-in: var(--added, #2ea043);
+  --viz-out: var(--muted, #969696);
+  --viz-hit: var(--s-str, #ce9178);
+  --viz-font: var(--font-code, ui-monospace, Menlo, Consolas, monospace);
+  --cell: min(46px, calc((100cqw - 2px) / var(--n)));
+
+  margin: 0;
+  container-type: inline-size;
+  border: 1px solid var(--viz-rule);
+  border-radius: 6px;
+  background: var(--viz-bg);
+  color: var(--viz-fg);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.viz-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--viz-rule);
+  color: var(--viz-muted);
+  font-size: 12px;
+}
+
+.viz-title {
+  color: var(--viz-strong);
+  font-weight: 600;
+}
+
+.viz-count {
+  font-family: var(--viz-font);
+  font-variant-numeric: tabular-nums;
+}
+
+.viz-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 14px 22px;
+  padding: 18px 14px 6px;
+}
+
+.viz-stage {
+  flex: 1 1 auto;
+  min-width: 0;
+  container-type: inline-size;
+}
+
+.viz-row,
+.viz-idx,
+.viz-ptrs {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--n), var(--cell));
+}
+
+.viz-cell {
+  display: grid;
+  place-items: center;
+  height: var(--cell);
+  margin: 0 -1px 0 0;
+  border: 1px solid var(--viz-rule);
+  background: var(--viz-cell);
+  color: var(--viz-strong);
+  font-family: var(--viz-font);
+  font-size: calc(var(--cell) * 0.36);
+  font-variant-numeric: tabular-nums;
+  transition: background-color 0.3s ease, color 0.3s ease, opacity 0.3s ease;
+}
+
+.viz-cell.is-empty {
+  opacity: 0;
+}
+
+.viz-cell.is-win {
+  background: color-mix(in srgb, var(--viz-accent) 16%, var(--viz-cell));
+}
+
+.viz-cell.is-in {
+  background: color-mix(in srgb, var(--viz-in) 34%, var(--viz-cell));
+}
+
+.viz-cell.is-out {
+  color: var(--viz-out);
+  text-decoration: line-through;
+}
+
+.viz-cell.is-hit {
+  background: color-mix(in srgb, var(--viz-hit) 36%, var(--viz-cell));
+}
+
+.viz-cell.is-ok {
+  box-shadow: inset 0 -3px 0 var(--viz-in);
+}
+
+/* 窗口：一个盖在格子上的框，左端和宽度随帧变化，滑动由过渡完成 */
+.viz-win {
+  position: absolute;
+  z-index: 1;
+  top: -5px;
+  bottom: -5px;
+  left: calc(var(--l, 0) * var(--cell) - 3px);
+  width: calc(var(--w, 0) * var(--cell) + 5px);
+  border: 2px solid var(--viz-accent);
+  border-radius: 6px;
+  pointer-events: none;
+  transition: left 0.45s cubic-bezier(0.3, 0.7, 0.3, 1), width 0.45s cubic-bezier(0.3, 0.7, 0.3, 1), opacity 0.3s ease;
+}
+
+.viz-win.is-hidden {
+  opacity: 0;
+}
+
+.viz-idx {
+  margin-top: 4px;
+  color: var(--viz-muted);
+  font-family: var(--viz-font);
+  font-size: 10.5px;
+  text-align: center;
+}
+
+.viz-ptrs {
+  display: block;
+  height: calc(var(--rows, 1) * 32px + 2px);
+}
+
+.viz-ptr {
+  position: absolute;
+  top: calc(var(--row) * 32px + 2px);
+  left: calc((var(--i) + 0.5) * var(--cell));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translateX(-50%);
+  color: var(--viz-accent);
+  font-size: 10px;
+  line-height: 1.1;
+  transition: left 0.45s cubic-bezier(0.3, 0.7, 0.3, 1), top 0.3s ease;
+}
+
+.viz-ptr b {
+  margin-top: 2px;
+  font-family: var(--viz-font);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.viz-vars {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 4px 12px;
+  margin: 0;
+  padding: 2px 0;
+  font-family: var(--viz-font);
+  font-size: 12.5px;
+}
+
+.viz-vars div {
+  display: contents;
+}
+
+.viz-vars dt {
+  color: var(--viz-muted);
+}
+
+.viz-vars dd {
+  margin: 0;
+  color: var(--viz-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.viz-note {
+  min-height: 3.2em;
+  margin: 0;
+  padding: 4px 14px 10px;
+  color: var(--viz-fg);
+}
+
+.viz-note code {
+  font-family: var(--viz-font);
+  font-size: 0.92em;
+}
+
+.viz-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--viz-rule);
+}
+
+.viz-ctrl button {
+  min-width: 30px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--viz-fg) 10%, transparent);
+  color: var(--viz-strong);
+  font-size: 12px;
+}
+
+.viz-ctrl button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--viz-fg) 18%, transparent);
+}
+
+.viz-ctrl button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.viz-ctrl .viz-play {
+  min-width: 52px;
+}
+
+.viz-bar {
+  flex: 1;
+  height: 3px;
+  margin-left: 6px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--viz-fg) 14%, transparent);
+  overflow: hidden;
+}
+
+.viz-bar i {
+  display: block;
+  height: 100%;
+  background: var(--viz-accent);
+  transition: width 0.3s ease;
+}
+
+/* 旁白里的小图：格子小一些，变量放到下面 */
+.viz-small {
+  --cell: min(34px, calc((100cqw - 2px) / var(--n)));
+  font-size: 12.5px;
+}
+
+.viz-small .viz-body {
+  padding: 14px 10px 4px;
+}
+
+.viz-small .viz-vars {
+  flex-basis: 100%;
+  grid-template-columns: repeat(auto-fill, minmax(90px, auto));
+}
+
+.viz-small .viz-vars div {
+  display: flex;
+  gap: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .viz-win,
+  .viz-ptr,
+  .viz-cell,
+  .viz-bar i {
+    transition: none;
+  }
+}

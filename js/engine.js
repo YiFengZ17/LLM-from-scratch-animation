@@ -21,6 +21,8 @@
  *   { run: '命令', output: ['一行', ...] }   在终端里运行并显示输出
  *   { pause: 毫秒 }                          停一下
  * 每个操作都可以带 file: '文件名'，不带就沿用这一步的 file 或当前文件。
+ * 打字的操作（type、replace）还可以带 note: '说明'：这一行为什么这样写、用到了什么语法。
+ * 说明不写进文件，只用来展示：引擎记下它对应文件里的哪个位置，之后插入、删除代码时跟着移动。
  * 锚点文本必须在文件里恰好出现一次，否则加载时直接报错。
  *
  * 一门课分成好几章，后一章接着前一章写完的代码继续：compile 的第二个参数就是前一章结束时的状态。
@@ -32,6 +34,9 @@
   const NEWLINE_MS = 320; // 换行后的停顿，给人看完上一行的时间
   const JUMP_MS = 650; // 光标跳到别处后的停顿，让视线跟上
   const SELECT_MS = 750; // 选中一段文本后的停顿
+  const NOTE_BASE_MS = 500; // 一行说明出现后，至少停这么久再开始打这一行
+  const NOTE_CHAR_MS = 45; // 说明每多一个字，多停这么久
+  const NOTE_MAX_MS = 4500;
 
   // 固定种子的随机数，保证同一步每次播放的节奏完全一致
   function rng(seed) {
@@ -49,9 +54,12 @@
     return JSON.parse(JSON.stringify(st));
   }
 
+  // notes：这一步的旁白和逐行说明在文件里的位置。
+  //   { kind: 'say', file, pos, where }  这一步的旁白放在哪里（where 是 'after' 或 'before' 这一行）
+  //   { kind: 'note', file, pos, text }  一行代码的说明，放在这一行上方
   function newState(lesson) {
-    const st = { files: {}, order: [], active: null, cursor: {}, marks: {}, sel: null, term: null };
-    openFile(st, lesson.files[0]);
+    const st = { files: {}, order: [], active: null, cursor: {}, marks: {}, notes: [], sel: null, term: null };
+    if (lesson.files.length) openFile(st, lesson.files[0]);
     return st;
   }
 
@@ -78,6 +86,7 @@
     const text = st.files[file];
     st.files[file] = text.slice(0, pos) + s + text.slice(pos);
     st.cursor[file] = pos + s.length;
+    for (const n of st.notes) if (n.file === file && n.pos > pos) n.pos += s.length;
     const ranges = st.marks[file] || (st.marks[file] = []);
     let merged = false;
     for (const r of ranges) {
@@ -97,6 +106,7 @@
     st.files[file] = text.slice(0, a) + text.slice(b);
     st.cursor[file] = a;
     const shift = (p) => (p <= a ? p : p >= b ? p - (b - a) : a);
+    for (const n of st.notes) if (n.file === file) n.pos = shift(n.pos);
     st.marks[file] = (st.marks[file] || [])
       .map((r) => [shift(r[0]), shift(r[1])])
       .filter((r) => r[1] > r[0]);
@@ -127,10 +137,31 @@
     return d;
   }
 
-  function* moveCursor(st, file, pos, switched) {
+  // sayNewline：这一步的旁白放在光标所在行的下面（true）还是上面（false），见 placeSay
+  function* moveCursor(st, file, pos, switched, sayNewline) {
     const moved = switched || st.cursor[file] !== pos;
     st.cursor[file] = pos;
+    placeSay(st, file, sayNewline);
     yield moved ? JUMP_MS : 0;
+  }
+
+  // 这一步第一次落笔的位置，就是旁白在「注释」模式下出现的位置：
+  // 新写的代码从下一行开始时，旁白放在光标所在行的下面，否则放在它上面
+  function placeSay(st, file, startsWithNewline) {
+    if (st.notes.some((n) => n.kind === 'say')) return;
+    st.notes.push({ kind: 'say', file, pos: st.cursor[file], where: startsWithNewline ? 'after' : 'before' });
+  }
+
+  // 带说明的打字：先打开头的换行和缩进，光标落到这一行的第一个字上，再把说明记在这里
+  function* typeWithNote(st, file, text, note, rand) {
+    const lead = /^(?:\n *)*/.exec(text)[0];
+    yield* typeText(st, file, lead, rand);
+    if (note) {
+      st.notes.push({ kind: 'note', file, pos: st.cursor[file], text: note });
+      // 说明出现后先停一下，留出读它的时间：字越多停得越久
+      yield Math.min(NOTE_MAX_MS, NOTE_BASE_MS + String(note).length * NOTE_CHAR_MS);
+    }
+    yield* typeText(st, file, text.slice(lead.length), rand);
   }
 
   function* typeText(st, file, text, rand) {
@@ -168,7 +199,7 @@
     const text = st.files[file];
 
     if (op.clear != null) {
-      yield* moveCursor(st, file, text.length, switched);
+      yield* moveCursor(st, file, text.length, switched, false);
       if (text.length) {
         st.sel = { file, from: 0, to: text.length };
         yield SELECT_MS;
@@ -183,8 +214,8 @@
       let pos = text.length;
       if (op.after != null) pos = findUnique(text, op.after, file) + op.after.length;
       else if (op.before != null) pos = findUnique(text, op.before, file);
-      yield* moveCursor(st, file, pos, switched);
-      yield* typeText(st, file, op.type, rand);
+      yield* moveCursor(st, file, pos, switched, op.type[0] === '\n');
+      yield* typeWithNote(st, file, op.type, op.note, rand);
       return;
     }
 
@@ -192,13 +223,13 @@
     if (target != null) {
       const a = findUnique(text, target, file);
       const b = a + target.length;
-      yield* moveCursor(st, file, b, switched);
+      yield* moveCursor(st, file, b, switched, false);
       st.sel = { file, from: a, to: b };
       yield SELECT_MS;
       remove(st, file, a, b);
       st.sel = null;
       yield 300;
-      if (op.replace != null) yield* typeText(st, file, op.with || '', rand);
+      if (op.replace != null) yield* typeWithNote(st, file, op.with || '', op.note, rand);
       return;
     }
 
@@ -207,6 +238,7 @@
 
   function* runStep(st, step, rand) {
     st.marks = {};
+    st.notes = [];
     st.sel = null;
     st.term = null;
     if (step.file) openFile(st, step.file);
@@ -218,9 +250,10 @@
     if (!from) return newState(lesson);
     const st = clone(from);
     st.marks = {};
+    st.notes = [];
     st.sel = null;
     st.term = null;
-    openFile(st, lesson.files[0]);
+    if (lesson.files.length) openFile(st, lesson.files[0]);
     return st;
   }
 
