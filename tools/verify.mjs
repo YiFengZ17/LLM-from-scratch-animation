@@ -6,6 +6,9 @@
 //   1. 把每一步都跑一遍，锚点写错、操作写错会在这里报出来；
 //   2. 检查语法高亮切出来的行和源码能一一对上；
 //   3. 把写完之后的文件存到输出目录，方便拿去真的运行一遍。
+//
+// 各章按顺序接续：后一章从前一章结束时的代码开始写。
+// 每一章导出的是那一章结束时的全部文件，所以在各章的目录里运行 scratch.py，用的就是当时的 model.py。
 import { createRequire } from 'node:module';
 import { mkdirSync, writeFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -23,15 +26,16 @@ for (const f of readdirSync(join(root, 'lessons')).sort()) {
 const { Engine, Highlight, LESSONS } = globalThis;
 const outDir = process.argv[2];
 let failed = false;
+let previous = null; // 上一章结束时的状态
 
 for (const lesson of LESSONS) {
   let compiled;
   try {
-    compiled = Engine.compile(lesson);
+    compiled = Engine.compile(lesson, previous);
   } catch (e) {
     console.error(`✗ ${lesson.id}: ${e.message}`);
     failed = true;
-    continue;
+    break;
   }
 
   // 动画一格一格播完，必须和一口气算出来的结果相同；每一格的高亮也要和源码对得上
@@ -57,6 +61,7 @@ for (const lesson of LESSONS) {
   });
 
   const final = compiled.after[compiled.after.length - 1];
+  previous = final;
   console.log(`✓ ${lesson.id}: ${lesson.steps.length} 步，${frames} 帧，1 倍速打字合计约 ${Math.round(typingMs / 1000)} 秒`);
   for (const name of final.order) {
     console.log(`    ${name}: ${final.files[name].split('\n').length} 行`);

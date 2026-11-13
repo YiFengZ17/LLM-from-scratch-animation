@@ -10,7 +10,7 @@ index="$(mktemp)"
 trap 'rm -f "$index"' EXIT
 
 GIT_INDEX_FILE="$index" git read-tree HEAD
-GIT_INDEX_FILE="$index" git rm --cached -r -q --ignore-unmatch README.md tools .gitignore
+GIT_INDEX_FILE="$index" git rm --cached -r -q --ignore-unmatch README.md PLAN.md tools .gitignore
 tree="$(GIT_INDEX_FILE="$index" git write-tree)"
 
 # 接在 gh-pages 已有的历史后面；内容没变就不发布

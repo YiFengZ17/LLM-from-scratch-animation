@@ -18,15 +18,7 @@
 (function (root) {
   'use strict';
 
-  const ROADMAP = ['词嵌入', '位置编码', '层归一化', '前馈网络', '多头注意力', '残差连接', '编码器', '解码器', '输出层与组装'];
-
-  const DOCS = 'https://pytorch.org/docs/stable/';
-  const PAPER = 'https://arxiv.org/abs/1706.03762';
-
-  // 引用 PyTorch 官方文档
-  const ref = (api, page, quote, zh) => ({ ref: { api, url: DOCS + page, source: 'PyTorch 文档', quote, zh } });
-  // 引用论文《Attention Is All You Need》
-  const paper = (where, quote, zh) => ({ ref: { api: '论文 ' + where, url: PAPER, source: '论文原文', quote, zh } });
+  const { ROADMAP, ref, paper } = root.LessonKit;
 
   const lesson = {
     id: '01-embeddings',
@@ -477,7 +469,7 @@
         say: [
           '`model.py` 里现在有两个零件。一句话经过它们，形状从 `(batch, seq_len)` 变成 `(batch, seq_len, d_model)`，后面所有零件接收和输出的都是这个形状。',
           { roadmap: { done: 2, now: 0 } },
-          '这是演示版的第一章，后面的章节还在制作中。',
+          '下一章写层归一化和前馈网络，它们是后面编码器和解码器里反复用到的两个基础零件。',
         ],
       },
     ],

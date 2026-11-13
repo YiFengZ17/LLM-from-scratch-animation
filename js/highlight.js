@@ -90,7 +90,7 @@
         const w = mi[0];
         const j = i + w.length;
         let cls;
-        if (prevWord === 'def') cls = 'fn';
+        if (prevWord === 'def' || prevChar === '@') cls = 'fn';
         else if (prevWord === 'class') cls = 'cls';
         else if (KW.has(w)) cls = 'kw';
         else if (KW2.has(w)) cls = 'kw2';

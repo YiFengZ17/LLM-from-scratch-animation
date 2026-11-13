@@ -17,10 +17,13 @@
  *   { type: '文本', before: '锚点' }         在锚点文本之前打字
  *   { replace: '旧文本', with: '新文本' }     选中旧文本，删掉，打新文本
  *   { remove: '文本' }                       选中并删掉
+ *   { clear: '文件名' }                      全选这个文件并删掉，准备重写
  *   { run: '命令', output: ['一行', ...] }   在终端里运行并显示输出
  *   { pause: 毫秒 }                          停一下
  * 每个操作都可以带 file: '文件名'，不带就沿用这一步的 file 或当前文件。
  * 锚点文本必须在文件里恰好出现一次，否则加载时直接报错。
+ *
+ * 一门课分成好几章，后一章接着前一章写完的代码继续：compile 的第二个参数就是前一章结束时的状态。
  */
 (function (root) {
   'use strict';
@@ -160,9 +163,21 @@
       return;
     }
 
-    const file = op.file || step.file || st.active;
+    const file = op.clear || op.file || step.file || st.active;
     const switched = openFile(st, file);
     const text = st.files[file];
+
+    if (op.clear != null) {
+      yield* moveCursor(st, file, text.length, switched);
+      if (text.length) {
+        st.sel = { file, from: 0, to: text.length };
+        yield SELECT_MS;
+        remove(st, file, 0, text.length);
+        st.sel = null;
+        yield 400;
+      }
+      return;
+    }
 
     if (op.type != null) {
       let pos = text.length;
@@ -198,9 +213,20 @@
     for (const op of step.ops || []) yield* runOp(st, op, step, rand);
   }
 
+  // 一章开始时的状态：第一章从空文件开始，之后每章接着上一章结束时的代码
+  function startState(lesson, from) {
+    if (!from) return newState(lesson);
+    const st = clone(from);
+    st.marks = {};
+    st.sel = null;
+    st.term = null;
+    openFile(st, lesson.files[0]);
+    return st;
+  }
+
   // 加载时把每一步的最终状态都算出来：既是校验（锚点写错会立刻报错），也供后退和跳转使用
-  function compile(lesson) {
-    const initial = newState(lesson);
+  function compile(lesson, from) {
+    const initial = startState(lesson, from);
     const after = [];
     const st = clone(initial);
     lesson.steps.forEach((step, i) => {
