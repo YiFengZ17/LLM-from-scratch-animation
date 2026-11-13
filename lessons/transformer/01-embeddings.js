@@ -18,11 +18,13 @@
 (function (root) {
   'use strict';
 
-  const { ROADMAP, ref, paper } = root.LessonKit;
+  const { ref, paper } = root.LessonKit;
+  const ROADMAP = root.Catalog.byId.transformer.roadmap;
 
   const lesson = {
     id: '01-embeddings',
     title: '词嵌入与位置编码',
+    summary: '把词的编号换成向量，再加上表示位置的正弦和余弦。',
     files: ['model.py', 'scratch.py'],
     docName: '前置知识.md',
     roadmap: ROADMAP,
@@ -198,7 +200,7 @@
         section: '词嵌入',
         title: '导入',
         say: ['从空文件开始，先导入 PyTorch。后面所有零件都从 `torch.nn` 里取，按惯例简写成 `nn`。'],
-        ops: [{ type: 'import torch\nimport torch.nn as nn' }],
+        ops: [{ type: 'import torch\nimport torch.nn as nn', note: '要写神经网络，第一件事是把 PyTorch 拿进来：`torch` 管张量计算，`torch.nn` 是现成零件的仓库。后者用得太频繁，起个短名字 `nn`。' }],
       },
       {
         section: '词嵌入',
@@ -207,7 +209,7 @@
           ref('nn.Module', 'generated/torch.nn.Module.html', 'Base class for all neural network modules. Your models should also subclass this class.', '所有神经网络模块的基类。你自己的模型也应该继承它。'),
           '按骨架，先写类名并继承 `nn.Module`。',
         ],
-        ops: [{ type: '\n\nclass InputEmbeddings(nn.Module):' }],
+        ops: [{ type: '\n\nclass InputEmbeddings(nn.Module):', note: '第一个零件负责把编号换成向量。PyTorch 的零件都继承 `nn.Module`，这样零件里的参数才会被自动登记、能被训练。' }],
       },
       {
         section: '词嵌入',
@@ -222,7 +224,7 @@
           ),
           '所以 `super().__init__()` 写在第一行。',
         ],
-        ops: [{ type: '\n\n    def __init__(self, d_model: int, vocab_size: int) -> None:\n        super().__init__()' }],
+        ops: [{ type: '\n\n    def __init__(self, d_model: int, vocab_size: int) -> None:\n        super().__init__()', note: '造这张表要先知道两个数：每个向量多长（`d_model`），词表里一共几个词（`vocab_size`）。`__init__` 里第一件事永远是调用父类的初始化。' }],
       },
       {
         section: '词嵌入',
@@ -238,9 +240,9 @@
           { shape: ['(vocab_size, d_model)'], label: '嵌入表' },
         ],
         ops: [
-          { type: '\n        self.d_model = d_model\n        self.vocab_size = vocab_size' },
+          { type: '\n        self.d_model = d_model\n        self.vocab_size = vocab_size', note: '两个数先存在自己身上，`forward` 里做缩放时还要用 `d_model`。' },
           { pause: 500 },
-          { type: '\n        self.embedding = nn.Embedding(vocab_size, d_model)' },
+          { type: '\n        self.embedding = nn.Embedding(vocab_size, d_model)', note: '真正的表交给 `nn.Embedding`：vocab_size 行、d_model 列，第 i 行就是第 i 个词的向量。' },
         ],
       },
       {
@@ -252,9 +254,9 @@
           { shape: ['(batch, seq_len)', '(batch, seq_len, d_model)'], label: '形状' },
         ],
         ops: [
-          { type: '\n\n    def forward(self, x):\n        # (batch, seq_len) --> (batch, seq_len, d_model)' },
+          { type: '\n\n    def forward(self, x):\n        # (batch, seq_len) --> (batch, seq_len, d_model)', note: '数据流过时做什么写在 `forward` 里。先用一行注释把形状定下来：进来的是编号，每个编号都会变成一个向量，所以多出一维。' },
           { pause: 400 },
-          { type: '\n        return self.embedding(x)' },
+          { type: '\n        return self.embedding(x)', note: '查表本身只要一句：把编号交给这张表，它把对应的行取出来。' },
         ],
       },
       {
@@ -264,13 +266,13 @@
           paper('3.4 节', 'In the embedding layers, we multiply those weights by √d_model.', '在嵌入层里，我们把这些权重乘以 √d_model。'),
           '查表已经写对了，再回到 `return` 这一行，把论文要求的缩放补在后面。',
         ],
-        ops: [{ type: ' * math.sqrt(self.d_model)', after: 'return self.embedding(x)' }],
+        ops: [{ type: ' * math.sqrt(self.d_model)', after: 'return self.embedding(x)', note: '论文要求查表的结果再乘以 √d_model。查表已经写好了，就在这一行后面补上缩放。' }],
       },
       {
         section: '词嵌入',
         title: '回到顶部，补上 import',
         say: ['上一步用了 `math.sqrt`，但文件开头还没有导入 `math`。回到顶部补上。'],
-        ops: [{ type: '\nimport math', after: 'import torch.nn as nn' }],
+        ops: [{ type: '\nimport math', after: 'import torch.nn as nn', note: '刚才用了 `math.sqrt`，文件顶部还没导入 `math`，现在运行会报错。回到 import 那几行补上。' }],
       },
       {
         section: '词嵌入',
@@ -281,11 +283,11 @@
           { shape: ['(1, 3)', '(1, 3, 512)'], label: '预期' },
         ],
         ops: [
-          { type: 'import torch\nfrom model import InputEmbeddings' },
+          { type: 'import torch\nfrom model import InputEmbeddings', note: '零件写好了，马上单独试一下。新开一个草稿文件，把刚写的零件导入进来。' },
           { pause: 300 },
-          { type: '\n\nx = torch.tensor([[5, 2, 9]])\nembed = InputEmbeddings(d_model=512, vocab_size=1000)' },
+          { type: '\n\nx = torch.tensor([[5, 2, 9]])\nembed = InputEmbeddings(d_model=512, vocab_size=1000)', note: '造一句 3 个词的输入：外层方括号是一句话，里面是 3 个编号。再造一个嵌入零件：向量长 512，词表 1000 个词。' },
           { pause: 300 },
-          { type: '\n\nprint(x.shape)\nprint(embed(x).shape)' },
+          { type: '\n\nprint(x.shape)\nprint(embed(x).shape)', note: '打印前后的形状，和预期对一对：(1, 3) 应该变成 (1, 3, 512)。' },
           { pause: 600 },
           { run: 'python scratch.py', output: ['torch.Size([1, 3])', 'torch.Size([1, 3, 512])'] },
         ],
@@ -301,11 +303,11 @@
           '它要建一张 `seq_len` 行、`d_model` 列的位置表，论文还要求在这里用一次 Dropout，所以构造参数是这三个。',
         ],
         ops: [
-          { type: '\n\nclass PositionalEncoding(nn.Module):' },
+          { type: '\n\nclass PositionalEncoding(nn.Module):', note: '第二个零件给每个位置加上位置信息。它也是一个 `nn.Module`。' },
           { pause: 300 },
-          { type: '\n\n    def __init__(self, d_model: int, seq_len: int, dropout: float) -> None:\n        super().__init__()' },
+          { type: '\n\n    def __init__(self, d_model: int, seq_len: int, dropout: float) -> None:\n        super().__init__()', note: '要建一张位置表，需要向量长度 `d_model` 和最多多少个位置 `seq_len`；论文还要求在这里用一次 Dropout，所以多一个比例参数。' },
           { pause: 300 },
-          { type: '\n        self.d_model = d_model\n        self.seq_len = seq_len' },
+          { type: '\n        self.d_model = d_model\n        self.seq_len = seq_len', note: '前两个数先存下来。' },
         ],
       },
       {
@@ -325,7 +327,7 @@
           ),
           '先在 `__init__` 里把它建好，`forward` 里再用。',
         ],
-        ops: [{ type: '\n        self.dropout = nn.Dropout(dropout)' }],
+        ops: [{ type: '\n        self.dropout = nn.Dropout(dropout)', note: 'Dropout 在 `__init__` 里先造好，`forward` 里再用：它在训练时随机把一部分数置零。' }],
       },
       {
         section: '位置编码',
@@ -340,7 +342,7 @@
           '位置表先建成全 0，后面分两次把 sin 和 cos 填进去。`pe` 是 positional encoding 的缩写。',
           { shape: ['(seq_len, d_model)'], label: 'pe' },
         ],
-        ops: [{ type: '\n        pe = torch.zeros(seq_len, d_model) # (seq_len, d_model)' }],
+        ops: [{ type: '\n        pe = torch.zeros(seq_len, d_model) # (seq_len, d_model)', note: '位置表最后是 seq_len 行、d_model 列。先造一张全是 0 的空表，后面分两次把 sin 和 cos 填进去。' }],
       },
       {
         section: '位置编码',
@@ -361,7 +363,7 @@
           '`arange` 生成 0 到 `seq_len - 1`，`unsqueeze(1)` 把它变成一列，为后面的广播做准备。',
           { shape: ['(seq_len,)', '(seq_len, 1)'], label: '形状' },
         ],
-        ops: [{ type: '\n        position = torch.arange(0, seq_len, dtype=torch.float).unsqueeze(1) # (seq_len, 1)' }],
+        ops: [{ type: '\n        position = torch.arange(0, seq_len, dtype=torch.float).unsqueeze(1) # (seq_len, 1)', note: '公式的分子是位置 pos：0、1、2……一直到 seq_len - 1。用 `arange` 生成这一串，再用 `unsqueeze(1)` 竖成一列，后面要靠广播和一行数相乘。' }],
       },
       {
         section: '位置编码',
@@ -376,7 +378,7 @@
           '按前置知识里的换算，把分母的倒数写成 `exp` 的形式。步长为 2 的 `arange` 就是公式里的 `2i`，所以结果的长度是 `d_model / 2`。',
           { shape: ['(d_model/2,)'], label: 'div_term' },
         ],
-        ops: [{ type: '\n        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model)) # (d_model / 2)' }],
+        ops: [{ type: '\n        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model)) # (d_model / 2)', note: '公式的分母随列号变化。直接算 10000 的幂数值不稳定，换成 `exp` 加 `log` 的等价写法；前面的负号让它算出分母的倒数，后面就能用乘法。步长为 2 的 `arange` 正好是公式里的 2i。' }],
       },
       {
         section: '位置编码',
@@ -393,9 +395,9 @@
           '`0::2` 选出偶数列，填 sin；`1::2` 选出奇数列，填 cos。',
         ],
         ops: [
-          { type: '\n        pe[:, 0::2] = torch.sin(position * div_term)' },
+          { type: '\n        pe[:, 0::2] = torch.sin(position * div_term)', note: '一列位置乘一行频率，广播成一张表。偶数列（`0::2`，从第 0 列开始每隔一列）填 sin。' },
           { pause: 500 },
-          { type: '\n        pe[:, 1::2] = torch.cos(position * div_term)' },
+          { type: '\n        pe[:, 1::2] = torch.cos(position * div_term)', note: '奇数列（`1::2`）填 cos，用的是同一张表。' },
         ],
       },
       {
@@ -405,7 +407,7 @@
           '词向量的形状是 `(batch, seq_len, d_model)`。给位置表在最前面补一个长度为 1 的维度，相加时它就能广播到一批里的每一句话。',
           { shape: ['(seq_len, d_model)', '(1, seq_len, d_model)'], label: '形状' },
         ],
-        ops: [{ type: '\n        pe = pe.unsqueeze(0) # (1, seq_len, d_model)' }],
+        ops: [{ type: '\n        pe = pe.unsqueeze(0) # (1, seq_len, d_model)', note: '这张表要加到形状为 (batch, seq_len, d_model) 的词向量上，前面还差一个 batch 维。`unsqueeze(0)` 在最前面补一个长度为 1 的维度，相加时会广播到每一句话。' }],
       },
       {
         section: '位置编码',
@@ -419,7 +421,7 @@
           ),
           '`pe` 是算出来的，不需要训练，但要跟着模型走，所以登记为 buffer。登记之后用 `self.pe` 访问。',
         ],
-        ops: [{ type: "\n        self.register_buffer('pe', pe)" }],
+        ops: [{ type: "\n        self.register_buffer('pe', pe)", note: '这张表是算出来的，不需要训练，但要跟着模型保存、跟着模型搬到显卡上。这正是 buffer 的用途，登记之后就能用 `self.pe` 取到它。' }],
       },
       {
         section: '位置编码',
@@ -435,9 +437,9 @@
           { shape: ['(batch, seq_len, d_model)', '(batch, seq_len, d_model)'], label: '形状' },
         ],
         ops: [
-          { type: '\n\n    def forward(self, x):\n        x = x + (self.pe[:, :x.shape[1], :]).requires_grad_(False) # (batch, seq_len, d_model)' },
+          { type: '\n\n    def forward(self, x):\n        x = x + (self.pe[:, :x.shape[1], :]).requires_grad_(False) # (batch, seq_len, d_model)', note: '`forward` 里把位置表加到词向量上。这批句子可能没有 seq_len 那么长，所以只取前 `x.shape[1]` 行；位置表不参与求导。' },
           { pause: 600 },
-          { type: '\n        return self.dropout(x)' },
+          { type: '\n        return self.dropout(x)', note: '加完过一次 Dropout，再返回。' },
         ],
       },
       {
@@ -450,9 +452,9 @@
           '最后一行打印位置 0 的前 4 个数。按公式是 sin(0)、cos(0) 交替，应该是 0、1、0、1，和前置知识里那张表的第一行一致。',
         ],
         ops: [
-          { type: ', PositionalEncoding', after: 'from model import InputEmbeddings' },
+          { type: ', PositionalEncoding', after: 'from model import InputEmbeddings', note: '回到草稿，在导入那一行补上新零件的名字。' },
           { pause: 400 },
-          { type: '\n\npos = PositionalEncoding(d_model=512, seq_len=100, dropout=0.1)\nprint(pos(embed(x)).shape)\nprint(pos.pe[0, 0, :4])' },
+          { type: '\n\npos = PositionalEncoding(d_model=512, seq_len=100, dropout=0.1)\nprint(pos(embed(x)).shape)\nprint(pos.pe[0, 0, :4])', note: '造一个位置编码零件，把刚才的词向量送进去，看形状是不是不变；再打印位置 0 的前 4 个数，按公式应该是 0、1、0、1。' },
           { pause: 600 },
           {
             run: 'python scratch.py',
@@ -475,5 +477,5 @@
     ],
   };
 
-  (root.LESSONS = root.LESSONS || []).push(lesson);
+  root.Catalog.addChapter('transformer', lesson);
 })(typeof window !== 'undefined' ? window : globalThis);

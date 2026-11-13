@@ -6,11 +6,13 @@
 (function (root) {
   'use strict';
 
-  const { ROADMAP, paper } = root.LessonKit;
+  const { paper } = root.LessonKit;
+  const ROADMAP = root.Catalog.byId.transformer.roadmap;
 
   const lesson = {
     id: '05-decoder',
     title: '解码器',
+    summary: '多一个交叉注意力：一边看已有的译文，一边看原句。',
     files: ['model.py', 'scratch.py'],
     docName: '前置知识.md',
     roadmap: ROADMAP,
@@ -103,25 +105,25 @@
       /* ============================================================== 解码器 */
       {
         section: '解码器层',
-        title: '第七个零件：外壳',
+        title: '第九个零件：外壳',
         file: 'model.py',
         say: [
           '回到 `model.py` 末尾。和编码器层相比，多传一个交叉注意力。',
           '自注意力和交叉注意力是两个独立的 `MultiHeadAttentionBlock`，各有各的参数。',
         ],
         ops: [
-          { type: '\n\nclass DecoderBlock(nn.Module):' },
+          { type: '\n\nclass DecoderBlock(nn.Module):', note: '第九个零件：一层解码器。' },
           { pause: 300 },
-          { type: '\n\n    def __init__(self, features: int, self_attention_block: MultiHeadAttentionBlock, cross_attention_block: MultiHeadAttentionBlock, feed_forward_block: FeedForwardBlock, dropout: float) -> None:\n        super().__init__()' },
+          { type: '\n\n    def __init__(self, features: int, self_attention_block: MultiHeadAttentionBlock, cross_attention_block: MultiHeadAttentionBlock, feed_forward_block: FeedForwardBlock, dropout: float) -> None:\n        super().__init__()', note: '和编码器层相比，多一个交叉注意力，所以构造参数里有三个子层。' },
           { pause: 300 },
-          { type: '\n        self.self_attention_block = self_attention_block\n        self.cross_attention_block = cross_attention_block\n        self.feed_forward_block = feed_forward_block' },
+          { type: '\n        self.self_attention_block = self_attention_block\n        self.cross_attention_block = cross_attention_block\n        self.feed_forward_block = feed_forward_block', note: '把三个子层都存下来。' },
         ],
       },
       {
         section: '解码器层',
         title: '三个残差连接',
         say: ['三个子层，所以造三个残差连接。和编码器层只差一个数字。'],
-        ops: [{ type: '\n        self.residual_connections = nn.ModuleList([ResidualConnection(features, dropout) for _ in range(3)])' }],
+        ops: [{ type: '\n        self.residual_connections = nn.ModuleList([ResidualConnection(features, dropout) for _ in range(3)])', note: '三个子层，各要一个残差连接。' }],
       },
       {
         section: '解码器层',
@@ -131,9 +133,9 @@
           '第一个子层是自注意力，q、k、v 都是 `x`，用 `tgt_mask` 挡住后面的词。',
         ],
         ops: [
-          { type: '\n\n    def forward(self, x, encoder_output, src_mask, tgt_mask):' },
+          { type: '\n\n    def forward(self, x, encoder_output, src_mask, tgt_mask):', note: '`forward` 比编码器层多收两样东西：编码器的输出，以及原句和译文各自的掩码。' },
           { pause: 400 },
-          { type: '\n        x = self.residual_connections[0](x, lambda x: self.self_attention_block(x, x, x, tgt_mask))' },
+          { type: '\n        x = self.residual_connections[0](x, lambda x: self.self_attention_block(x, x, x, tgt_mask))', note: '第一个子层是自注意力，q、k、v 都是 x，用译文的掩码挡住后面的词。写法和编码器一样，用 lambda 包一层。' },
         ],
       },
       {
@@ -144,13 +146,13 @@
           '写法和上一行一样，只改了注意力和参数。',
           { shape: ['(batch, tgt_len, d_model)', '(batch, tgt_len, d_model)'], label: '形状' },
         ],
-        ops: [{ type: '\n        x = self.residual_connections[1](x, lambda x: self.cross_attention_block(x, encoder_output, encoder_output, src_mask))' }],
+        ops: [{ type: '\n        x = self.residual_connections[1](x, lambda x: self.cross_attention_block(x, encoder_output, encoder_output, src_mask))', note: '第二个子层是交叉注意力：query 来自 x，key 和 value 来自编码器的输出，用原句的掩码挡住补齐的位置。' }],
       },
       {
         section: '解码器层',
         title: 'forward：前馈网络',
         say: ['第三个子层和编码器一样，直接传前馈网络。'],
-        ops: [{ type: '\n        x = self.residual_connections[2](x, self.feed_forward_block)\n        return x' }],
+        ops: [{ type: '\n        x = self.residual_connections[2](x, self.feed_forward_block)\n        return x', note: '第三个子层是前馈网络，直接传进去，然后返回。' }],
       },
       {
         section: '解码器',
@@ -160,13 +162,13 @@
           '最后同样补一个层归一化。',
         ],
         ops: [
-          { type: '\n\nclass Decoder(nn.Module):' },
+          { type: '\n\nclass Decoder(nn.Module):', note: '最后把 N 层解码器叠起来。' },
           { pause: 300 },
-          { type: '\n\n    def __init__(self, features: int, layers: nn.ModuleList) -> None:\n        super().__init__()\n        self.layers = layers\n        self.norm = LayerNormalization(features)' },
+          { type: '\n\n    def __init__(self, features: int, layers: nn.ModuleList) -> None:\n        super().__init__()\n        self.layers = layers\n        self.norm = LayerNormalization(features)', note: '和 Encoder 一样：存下各层，再准备一个最后用的层归一化。' },
           { pause: 500 },
-          { type: '\n\n    def forward(self, x, encoder_output, src_mask, tgt_mask):\n        for layer in self.layers:\n            x = layer(x, encoder_output, src_mask, tgt_mask)' },
+          { type: '\n\n    def forward(self, x, encoder_output, src_mask, tgt_mask):\n        for layer in self.layers:\n            x = layer(x, encoder_output, src_mask, tgt_mask)', note: '让数据依次穿过每一层，每一层都要带上编码器输出和两种掩码。' },
           { pause: 400 },
-          { type: '\n        return self.norm(x)' },
+          { type: '\n        return self.norm(x)', note: '最后归一化一次。' },
         ],
       },
 
@@ -181,13 +183,13 @@
         ],
         ops: [
           { clear: 'scratch.py' },
-          { type: 'import torch\nimport torch.nn as nn\nfrom model import MultiHeadAttentionBlock, FeedForwardBlock, DecoderBlock, Decoder\n\ntorch.set_grad_enabled(False)' },
+          { type: 'import torch\nimport torch.nn as nn\nfrom model import MultiHeadAttentionBlock, FeedForwardBlock, DecoderBlock, Decoder\n\ntorch.set_grad_enabled(False)', note: '导入解码器用到的四个零件，以及装各层用的 `torch.nn`。' },
           { pause: 400 },
-          { type: '\n\nblocks = [DecoderBlock(512, MultiHeadAttentionBlock(512, 8, 0.1), MultiHeadAttentionBlock(512, 8, 0.1), FeedForwardBlock(512, 2048, 0.1), 0.1) for _ in range(2)]\ndecoder = Decoder(512, nn.ModuleList(blocks))' },
+          { type: '\n\nblocks = [DecoderBlock(512, MultiHeadAttentionBlock(512, 8, 0.1), MultiHeadAttentionBlock(512, 8, 0.1), FeedForwardBlock(512, 2048, 0.1), 0.1) for _ in range(2)]\ndecoder = Decoder(512, nn.ModuleList(blocks))', note: '造两层解码器：每一层都有自己的自注意力、交叉注意力和前馈网络。' },
           { pause: 400 },
-          { type: '\n\nmemory = torch.randn(1, 4, 512)\ny = torch.randn(1, 5, 512)\ntgt_mask = torch.tril(torch.ones(5, 5))' },
+          { type: '\n\nmemory = torch.randn(1, 4, 512)\ny = torch.randn(1, 5, 512)\ntgt_mask = torch.tril(torch.ones(5, 5))', note: '编码器的输出先用随机数代替，原句 4 个位置；译文 5 个位置，故意不一样长。再造一个 5 × 5 的下三角掩码。' },
           { pause: 400 },
-          { type: '\nprint(decoder(y, memory, None, tgt_mask).shape)\nprint(blocks[0].cross_attention_block.attention_scores.shape)\nprint(sum(p.numel() for p in blocks[0].parameters()))' },
+          { type: '\nprint(decoder(y, memory, None, tgt_mask).shape)\nprint(blocks[0].cross_attention_block.attention_scores.shape)\nprint(sum(p.numel() for p in blocks[0].parameters()))', note: '看三样东西：输出形状跟着译文走；交叉注意力的权重是 5 行 4 列；一层解码器的参数量。' },
           { pause: 600 },
           { run: 'python scratch.py', output: ['torch.Size([1, 5, 512])', 'torch.Size([1, 8, 5, 4])', '4199936'] },
         ],
@@ -207,5 +209,5 @@
     ],
   };
 
-  (root.LESSONS = root.LESSONS || []).push(lesson);
+  root.Catalog.addChapter('transformer', lesson);
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -209,8 +209,6 @@ kbd {
   gap: 8px;
   min-width: 0;
   flex: 1;
-  /* 两侧按钮宽度不同，补一点让标题看起来居中 */
-  padding-left: 60px;
 }
 
 .title-name {
@@ -491,6 +489,7 @@ kbd {
 
 .editor {
   grid-area: editor;
+  position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -539,9 +538,11 @@ kbd {
   color: var(--s-kw2);
 }
 
-.file-icon.is-md {
-  color: var(--s-cls);
-}
+.file-icon.is-md { color: var(--s-cls); }
+.file-icon.is-c { color: var(--s-cls); }
+.file-icon.is-cpp { color: var(--s-kw); }
+.file-icon.is-java { color: var(--s-str); }
+.file-icon.is-rust { color: var(--warm); }
 
 /* 标签页右边的圆点：这个文件正在被修改（还没「保存」） */
 .tab-dot {
@@ -1832,5 +1833,195 @@ sup {
   .theme-fade *::before,
   .theme-fade *::after {
     transition: none !important;
+  }
+}
+
+/* =====================================================================
+ * 以下是 CPA 改版后新增的部分：返回按钮、旁白模式、注释块、浮动工具条、逐行说明
+ * ===================================================================== */
+
+/* 标题栏左侧：CPA 标志，点了回到课程页 */
+.tb-home {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 8px 3px 4px;
+  border-radius: 5px;
+  color: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.tb-home:hover {
+  background: color-mix(in srgb, var(--titlebar-fg) 13%, transparent);
+  text-decoration: none;
+}
+
+.tb-logo {
+  padding: 0 6px;
+  border-radius: 3px;
+  background: var(--accent);
+  color: var(--btn-fg);
+  font-family: var(--font-code);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 18px;
+}
+
+.tb-back {
+  opacity: 0.7;
+  font-size: 12px;
+}
+
+.title-name {
+  font-weight: 600;
+}
+
+.activity-btn {
+  text-decoration: none;
+}
+
+a.activity-btn:hover {
+  text-decoration: none;
+}
+
+/* ------------------------------------------------- 旁白里的思路流 */
+
+/* 每写一行代码之前出现的念头：一条接一条往下排，正在写的那一条高亮 */
+.thoughts {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 16px 0 0;
+  padding: 0 0 0 14px;
+  list-style: none;
+}
+
+/* 左边一条细线，把念头串成一条思路 */
+.thoughts::before {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 10px;
+  bottom: 10px;
+  width: 1px;
+  background: var(--rule-strong);
+}
+
+.thought {
+  position: relative;
+  padding: 6px 10px 7px;
+  border-radius: 5px;
+  color: var(--fg);
+  font-size: 14.5px;
+  line-height: 1.75;
+  animation: rise 0.3s ease-out both;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+.thought::before {
+  content: '';
+  position: absolute;
+  left: -14px;
+  top: 15px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1px solid var(--muted);
+  background: var(--side);
+}
+
+.thought p {
+  margin: 0;
+}
+
+.thought-ln {
+  display: none;
+  margin-top: 2px;
+  color: var(--muted);
+  font-family: var(--font-code);
+  font-size: 11px;
+}
+
+.thought:hover {
+  background: var(--hover);
+}
+
+.thought:hover .thought-ln,
+.thought.is-now .thought-ln {
+  display: block;
+}
+
+.thought.is-now {
+  background: var(--active);
+  color: var(--active-fg);
+}
+
+.thought.is-now::before {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.thought.is-now .thought-ln {
+  color: inherit;
+  opacity: 0.75;
+}
+
+.thought code {
+  padding: 0.05em 0.35em;
+  border-radius: 3px;
+  background: var(--chip);
+  color: var(--inline);
+  font-family: var(--font-code);
+  font-size: 0.87em;
+}
+
+.thought.is-now code {
+  color: inherit;
+}
+
+/* 编辑器里，正在写的那一行和鼠标指着的念头所在的行 */
+.line.is-thought .lc,
+.line.is-hover .lc {
+  border-left-color: var(--accent);
+}
+
+.line.is-hover .lc {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+/* 这一步用到的文档，放在思路之后 */
+.refs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 22px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+}
+
+.refs .ref {
+  margin: 0;
+}
+
+.refs-head {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+@media (max-width: 1120px) {
+  .tb-back {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .title-sub {
+    display: none;
   }
 }
