@@ -139,12 +139,15 @@
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ESC[c]);
   const pad2 = (n) => String(n).padStart(2, '0');
 
-  // 简易标记：`代码`、**加粗**，其余 HTML 原样保留
+  // 简易标记：`代码`、**加粗**，其余 HTML 原样保留。
+  // 加粗里可以包含代码：先把代码换成占位符，处理完加粗再换回来（代码里的 ** 不会被当成加粗）。
   function md(s) {
-    return String(s)
+    const codes = [];
+    const text = String(s)
       .split('`')
-      .map((part, i) => (i % 2 ? '<code>' + esc(part) + '</code>' : part.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')))
+      .map((part, i) => (i % 2 ? '\u0000' + (codes.push('<code>' + esc(part) + '</code>') - 1) + '\u0000' : part))
       .join('');
+    return text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\u0000(\d+)\u0000/g, (_, k) => codes[k]);
   }
 
   const progressOf = () => S.course(course.id);
