@@ -1,0 +1,1559 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>逐字 · 首页设计稿</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Noto+Sans+SC:wght@300;400;500;700&display=swap">
+<style>
+/*
+ * 展厅（首页）的设计系统。只有一套深色，刻意不跟随系统：展厅是一个固定的视觉世界，
+ * 进入编辑器后才由读者选择主题。
+ * 布局：首屏左文右样片，背景是按位置编码公式实时计算的点阵；下面三段依次是「怎么学」「板块」「核对」。
+ */
+:root {
+  color-scheme: dark;
+  --ink: #07090e;          /* 页面底色，带一点蓝 */
+  --ink-2: #0c1017;        /* 抬起的面 */
+  --ink-3: #121822;        /* 悬停 */
+  --line: rgba(150, 170, 205, 0.13);
+  --line-2: rgba(150, 170, 205, 0.24);
+  --text: #e9edf4;
+  --text-2: #a3adbf;
+  --text-3: #6b778c;
+  --cool: #6aa8ff;         /* 主强调色：位置编码的负值 */
+  --warm: #ffb36b;         /* 只用在背景波纹：位置编码的正值 */
+  --easy: #4fc3a1;
+  --medium: #e8b04a;
+  --hard: #ef6f6c;
+  --code-kw: #c49bff;
+  --code-fn: #7cc4ff;
+  --code-str: #9fd68a;
+  --code-num: #ffb36b;
+  --code-com: #5f6b80;
+  --code-type: #5fd0c2;
+  --font-sans: 'Noto Sans SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --gutter-l: max(20px, env(safe-area-inset-left, 0px));
+  --gutter-r: max(20px, env(safe-area-inset-right, 0px));
+  --wrap: 1180px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--ink);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--cool);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.wrap {
+  max-width: var(--wrap);
+  margin: 0 auto;
+  padding-left: var(--gutter-l);
+  padding-right: var(--gutter-r);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  color: var(--text-3);
+  text-transform: uppercase;
+}
+
+/* ------------------------------------------------------------------ 首屏 */
+
+.hero {
+  position: relative;
+  isolation: isolate;
+  border-bottom: 1px solid var(--line);
+}
+
+/* 背景波纹：越往左越淡，让文字区安静 */
+.hero canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.25) 30%, #000 70%), linear-gradient(to bottom, #000 70%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.25) 30%, #000 70%), linear-gradient(to bottom, #000 70%, transparent);
+  mask-composite: intersect;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding-block: 22px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
+/* 标志：一个闪烁的光标 */
+.logo i {
+  width: 3px;
+  height: 20px;
+  border-radius: 1px;
+  background: var(--cool);
+  animation: blink 1.1s steps(1) infinite;
+}
+
+.nav-links {
+  display: flex;
+  gap: 26px;
+  margin-left: auto;
+  color: var(--text-2);
+  font-size: 14px;
+}
+
+.nav-links a:hover {
+  color: var(--text);
+}
+
+.badge {
+  padding: 2px 9px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.04fr);
+  align-items: center;
+  gap: 56px;
+  padding-block: 64px 96px;
+}
+
+.hero h1 {
+  margin: 18px 0 0;
+  font-size: clamp(42px, 6vw, 84px);
+  font-weight: 300;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.hero h1 span,
+.hero h1 b {
+  display: block;
+  white-space: nowrap;
+}
+
+.hero h1 b {
+  font-weight: 500;
+}
+
+/* 标题末尾的光标 */
+.hero h1 b.end::after {
+  content: '';
+  display: inline-block;
+  width: 0.06em;
+  height: 0.86em;
+  margin-left: 0.08em;
+  vertical-align: -0.06em;
+  background: var(--cool);
+  animation: blink 1.1s steps(1) infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.lede {
+  max-width: 30em;
+  margin: 26px 0 0;
+  color: var(--text-2);
+  font-size: 17px;
+  line-height: 1.85;
+}
+
+.cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 36px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.btn-primary {
+  background: var(--text);
+  color: var(--ink);
+}
+
+.btn-primary:hover {
+  background: #fff;
+  transform: translateY(-1px);
+}
+
+.btn-ghost {
+  border: 1px solid var(--line-2);
+  color: var(--text);
+}
+
+.btn-ghost:hover {
+  border-color: var(--text-3);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.btn small {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  margin-top: 40px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.hero-meta span::before {
+  content: '— ';
+  color: var(--line-2);
+}
+
+/* 代码样片：首屏唯一的主动效 */
+.specimen {
+  position: relative;
+  margin: 0;
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  background: rgba(10, 13, 19, 0.84);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+}
+
+.spec-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.spec-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
+
+.spec-file::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--cool);
+}
+
+.spec-course {
+  margin-left: auto;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spec-code {
+  height: 372px;
+  margin: 0;
+  padding: 16px 0;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.75;
+  font-variant-ligatures: none;
+  color: #d6dbe6;
+}
+
+.spec-line {
+  display: grid;
+  grid-template-columns: 3.2em minmax(0, 1fr);
+}
+
+.spec-line > span:last-child {
+  padding-right: 16px;
+  padding-left: 4ch;
+  text-indent: -4ch;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.spec-line span.ln {
+  padding-right: 1.2em;
+  text-align: right;
+  color: #3f4859;
+  user-select: none;
+}
+
+.spec-line.is-cur {
+  background: rgba(106, 168, 255, 0.06);
+}
+
+.spec-line.is-cur span.ln {
+  color: var(--text-2);
+}
+
+.k { color: var(--code-kw); }
+.f { color: var(--code-fn); }
+.s { color: var(--code-str); }
+.n { color: var(--code-num); }
+.c { color: var(--code-com); }
+.t { color: var(--code-type); }
+
+.caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.2em;
+  margin-left: 1px;
+  vertical-align: -0.22em;
+  background: var(--text);
+}
+
+.spec-say {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: baseline;
+  padding: 14px 18px 16px;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+  color: var(--text-2);
+}
+
+.spec-say .eyebrow {
+  font-size: 11px;
+}
+
+.spec-say p {
+  margin: 0;
+  min-height: 2.9em;
+  transition: opacity 0.3s ease;
+}
+
+.spec-progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 0;
+  background: var(--cool);
+  opacity: 0.8;
+}
+
+/* ---------------------------------------------------------------- 通用段落 */
+
+.section {
+  padding-block: 112px 0;
+}
+
+.section-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  gap: 40px;
+  align-items: end;
+  margin-bottom: 48px;
+}
+
+.section-head h2 {
+  margin: 10px 0 0;
+  font-size: clamp(30px, 3.6vw, 46px);
+  font-weight: 300;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.section-head p {
+  margin: 0;
+  color: var(--text-2);
+  max-width: 36em;
+}
+
+/* ------------------------------------------------------------------ 三步 */
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+}
+
+.step {
+  padding: 30px 30px 34px 0;
+}
+
+.step + .step {
+  padding-left: 30px;
+  border-left: 1px solid var(--line);
+}
+
+.step-no {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--cool);
+}
+
+.step h3 {
+  margin: 10px 0 8px;
+  font-size: 22px;
+  font-weight: 500;
+}
+
+.step p {
+  margin: 0 0 22px;
+  color: var(--text-2);
+  font-size: 15px;
+}
+
+.mini {
+  height: 126px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: var(--text-2);
+  overflow: hidden;
+}
+
+.mini .kick {
+  color: var(--cool);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.mini .formula {
+  margin-top: 6px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.mini .bar {
+  height: 6px;
+  margin-top: 10px;
+  border-radius: 3px;
+  background: var(--line);
+}
+
+.mini .bar + .bar {
+  width: 72%;
+}
+
+/* 一行代码自己打出来又重来 */
+.typing {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  vertical-align: bottom;
+  animation: type 5s steps(22) infinite;
+}
+
+@keyframes type {
+  0% { width: 0; }
+  55%, 100% { width: 22ch; }
+}
+
+.mini .ok {
+  color: var(--easy);
+}
+
+/* ------------------------------------------------------------------ 板块 */
+
+.board {
+  margin-top: 28px;
+}
+
+.board + .board {
+  margin-top: 88px;
+}
+
+.board-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 18px;
+  padding-bottom: 18px;
+  margin-bottom: 26px;
+  border-bottom: 1px solid var(--line);
+}
+
+.board-head h3 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 400;
+}
+
+.board-head .mono {
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.board-head .spacer {
+  flex: 1;
+}
+
+/* Transformer 大卡片：左说明，右边 6 章从下往上叠成模型 */
+.feature {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 48px;
+  padding: 40px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: linear-gradient(180deg, var(--ink-2), var(--ink));
+}
+
+.feature h4 {
+  margin: 12px 0 14px;
+  font-size: clamp(28px, 3vw, 38px);
+  font-weight: 400;
+  line-height: 1.25;
+}
+
+.feature p {
+  margin: 0;
+  color: var(--text-2);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin: 32px 0 34px;
+  padding-block: 18px;
+  border-block: 1px solid var(--line);
+}
+
+.stat b {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 400;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat span {
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  align-self: center;
+}
+
+.layer {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2.4em minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 18px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: rgba(106, 168, 255, 0.03);
+  font-size: 15px;
+  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.25s ease;
+}
+
+.layer:hover {
+  border-color: var(--cool);
+  background: rgba(106, 168, 255, 0.08);
+  transform: translateX(-4px);
+}
+
+.layer .mono {
+  color: var(--cool);
+  font-size: 13px;
+}
+
+.layer small {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+/* 编码器和解码器在模型里是并排的两列 */
+.layer-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.layer-label {
+  margin-top: 2px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-align: center;
+}
+
+/* 语言选择 */
+.langs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.langs button {
+  padding: 5px 12px;
+  border-radius: 6px;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+.langs button:hover {
+  color: var(--text);
+}
+
+.langs button[aria-pressed='true'] {
+  background: var(--text);
+  color: var(--ink);
+}
+
+/* 题单总览：一条按难度分段的长条 */
+.totals {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px 24px;
+  align-items: center;
+  margin-bottom: 28px;
+}
+
+.totals-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  gap: 2px;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  grid-column: 2;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.legend i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 2px;
+}
+
+.e { background: var(--easy); }
+.m { background: var(--medium); }
+.h { background: var(--hard); }
+
+.map {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 138px;
+  padding: 18px 18px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--ink-2);
+  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+}
+
+.tile.is-planned {
+  background: transparent;
+}
+
+.tile.is-planned .tile-name {
+  color: var(--text-2);
+}
+
+.tile:hover {
+  border-color: var(--line-2);
+  background: var(--ink-3);
+  transform: translateY(-2px);
+}
+
+.tile.is-next {
+  border-color: rgba(106, 168, 255, 0.5);
+  background: linear-gradient(180deg, rgba(106, 168, 255, 0.1), rgba(106, 168, 255, 0.02));
+}
+
+.tile-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.tile-name {
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.tile-foot {
+  margin-top: auto;
+}
+
+.tile-bar {
+  display: flex;
+  gap: 2px;
+  height: 4px;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.tile-count {
+  margin-top: 8px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.chip {
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.chip.is-next {
+  background: var(--cool);
+  color: var(--ink);
+}
+
+.chip.is-soon {
+  border: 1px solid var(--line-2);
+  color: var(--text-2);
+}
+
+/* 语言入门两张卡片 */
+.pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.course {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  transition: border-color 0.2s ease;
+}
+
+.course:hover {
+  border-color: var(--line-2);
+}
+
+.course-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.course h4 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 400;
+}
+
+.course p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 15px;
+}
+
+.course pre {
+  margin: 4px 0 0;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: #d6dbe6;
+  overflow-x: auto;
+}
+
+.course ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.course ol li {
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text-3);
+  font-size: 12.5px;
+}
+
+/* ------------------------------------------------------------------ 核对 */
+
+.proof {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  border-block: 1px solid var(--line);
+}
+
+.proof div {
+  padding: 34px 28px 34px 0;
+}
+
+.proof div + div {
+  padding-left: 28px;
+  border-left: 1px solid var(--line);
+}
+
+.proof b {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: clamp(36px, 4vw, 52px);
+  font-weight: 400;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.proof b small {
+  font-size: 0.42em;
+  color: var(--text-3);
+  margin-left: 4px;
+}
+
+.proof p {
+  margin: 12px 0 0;
+  color: var(--text-2);
+  font-size: 15px;
+}
+
+/* ------------------------------------------------------------------ 页脚 */
+
+.foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px 40px;
+  justify-content: space-between;
+  padding-block: 64px 56px;
+  margin-top: 112px;
+  border-top: 1px solid var(--line);
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.foot nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 26px;
+}
+
+.foot a:hover {
+  color: var(--text);
+}
+
+/* ------------------------------------------------------------------ 窄屏 */
+
+@media (max-width: 980px) {
+  .hero-grid,
+  .feature,
+  .section-head {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hero-grid {
+    gap: 40px;
+    padding-block: 36px 64px;
+  }
+
+  .map {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .feature {
+    padding: 28px;
+  }
+}
+
+@media (max-width: 680px) {
+  .nav-links a:not(.keep) {
+    display: none;
+  }
+
+  .steps,
+  .proof,
+  .pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .step,
+  .step + .step,
+  .proof div,
+  .proof div + div {
+    padding: 26px 0;
+    border-left: 0;
+  }
+
+  .step + .step,
+  .proof div + div {
+    border-top: 1px solid var(--line);
+  }
+
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .spec-code {
+    height: 396px;
+    font-size: 11px;
+  }
+
+  .hero canvas {
+    opacity: 0.55;
+  }
+
+  .section {
+    padding-top: 80px;
+  }
+
+  .feature {
+    padding: 22px;
+  }
+
+  .tile {
+    min-height: 124px;
+    padding: 14px;
+  }
+
+  .tile-name {
+    font-size: 15px;
+  }
+
+  .totals {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .legend {
+    grid-column: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo i,
+  .hero h1 b.end::after,
+  .typing {
+    animation: none;
+  }
+
+  .typing {
+    width: 22ch;
+  }
+}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <canvas id="field" aria-hidden="true"></canvas>
+  <div class="wrap">
+    <nav class="nav" aria-label="主导航">
+      <a class="logo" href="#top"><i></i>逐字</a>
+      <span class="badge">设计稿</span>
+      <div class="nav-links">
+        <a href="#boards">课程</a>
+        <a href="#algo">题单</a>
+        <a href="https://github.com/YiFengZ17/LLM-from-scratch-animation/blob/claude/funny-dijkstra-g78rhj/PLAN.md" target="_blank" rel="noopener">计划</a>
+        <a class="keep" href="https://github.com/YiFengZ17/LLM-from-scratch-animation" target="_blank" rel="noopener">GitHub ↗</a>
+      </div>
+    </nav>
+
+    <div class="hero-grid" id="top">
+      <div>
+        <div class="eyebrow">翻页看代码</div>
+        <h1><span>看代码，</span><b>一个字一个字</b><b class="end">长出来</b></h1>
+        <p class="lede">先读几页思路，再看代码在编辑器里逐字写出，每一页由你翻。从零手写 Transformer，LeetCode 题单逐类精讲，算法题可选五种语言。</p>
+        <div class="cta">
+          <a class="btn btn-primary" href="https://yifengz17.github.io/LLM-from-scratch-animation/#ch1" target="_blank" rel="noopener">从 Transformer 开始 →</a>
+          <a class="btn btn-ghost" href="#algo">浏览题单 <small>195 题</small></a>
+        </div>
+        <div class="hero-meta">
+          <span>6 章 · 95 页</span>
+          <span>Python · C · C++ · Java · Rust</span>
+          <span>输出全部真实运行</span>
+        </div>
+      </div>
+
+      <figure class="specimen" aria-label="代码样片：自动逐字播放">
+        <figcaption class="spec-bar">
+          <span class="spec-file" id="spec-file">model.py</span>
+          <span class="spec-course" id="spec-course"></span>
+        </figcaption>
+        <pre class="spec-code" id="spec-code"></pre>
+        <div class="spec-say">
+          <span class="eyebrow">旁白</span>
+          <p id="spec-say"></p>
+        </div>
+        <div class="spec-progress" id="spec-progress"></div>
+      </figure>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="section wrap" aria-labelledby="how-title">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow">怎么学</div>
+        <h2 id="how-title">每一页，三件事</h2>
+      </div>
+      <p>概念和代码分开讲。写代码的时候，旁白只说这个部件是做什么的、为什么这样写，概念在前几页已经讲完。</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-no">01</div>
+        <h3>读思路</h3>
+        <p>前置知识页先把这一章要用的概念讲完，配公式、表格和动图。</p>
+        <div class="mini">
+          <div class="kick">前置知识 03 / 05</div>
+          <div class="formula">softmax( Q·Kᵀ / √d_k ) · V</div>
+          <div class="bar"></div>
+          <div class="bar"></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-no">02</div>
+        <h3>看代码长出来</h3>
+        <p>按一下，代码在编辑器里逐字打出，回头补的行和新写的行都有标记。</p>
+        <div class="mini">
+          <div><span class="k">def</span> <span class="f">forward</span>(self, x):</div>
+          <div>    <span class="typing"><span class="k">return</span> self.<span class="f">w_o</span>(x)</span><span class="caret"></span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-no">03</div>
+        <h3>跑一遍</h3>
+        <p>每章最后在终端运行一次。页面上的输出，和真实运行的结果逐行一致。</p>
+        <div class="mini">
+          <div><span class="ok">$</span> python scratch.py</div>
+          <div style="color: var(--text)">torch.Size([1, 4, 512])</div>
+          <div style="color: var(--text)">torch.Size([1, 8, 4, 4])</div>
+          <div class="ok">✓ 与真实运行一致</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section wrap" id="boards" aria-labelledby="boards-title">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow">板块</div>
+        <h2 id="boards-title">选一条路开始</h2>
+      </div>
+      <p>三个板块各自独立，可以从任何一个开始。学到哪里，回来时这里会点亮。</p>
+    </div>
+
+    <div class="board">
+      <div class="board-head">
+        <h3>深度学习</h3>
+        <span class="mono">1 门课</span>
+        <span class="spacer"></span>
+        <span class="mono">已完成</span>
+      </div>
+      <article class="feature">
+        <div>
+          <div class="eyebrow">PyTorch · 论文 Attention Is All You Need</div>
+          <h4>从零手写 Transformer</h4>
+          <p>从一个空文件开始，6 章逐字写出完整的 Transformer：嵌入、位置编码、注意力、编码器、解码器，最后组装成模型。每个部件都引用官方文档原文。</p>
+          <div class="stats">
+            <div class="stat"><b>6</b><span>章</span></div>
+            <div class="stat"><b>95</b><span>页</span></div>
+            <div class="stat"><b>241</b><span>行代码</span></div>
+            <div class="stat"><b>13</b><span>个类与函数</span></div>
+          </div>
+          <a class="btn btn-primary" href="https://yifengz17.github.io/LLM-from-scratch-animation/#ch1" target="_blank" rel="noopener">进入课程 →</a>
+        </div>
+        <div class="stack" aria-label="6 章从下往上叠成模型">
+          <div class="layer-label">↑ 数据从下往上流</div>
+          <div class="layer"><span class="mono">01</span>词嵌入与位置编码<small>25 页</small></div>
+          <div class="layer"><span class="mono">02</span>层归一化与前馈网络<small>12 页</small></div>
+          <div class="layer"><span class="mono">03</span>多头注意力<small>17 页</small></div>
+          <div class="layer-pair">
+            <div class="layer"><span class="mono">04</span>编码器<small>13 页</small></div>
+            <div class="layer"><span class="mono">05</span>解码器<small>12 页</small></div>
+          </div>
+          <div class="layer"><span class="mono">06</span>输出层与组装<small>16 页</small></div>
+        </div>
+      </article>
+    </div>
+
+    <div class="board" id="algo">
+      <div class="board-head">
+        <h3>算法题</h3>
+        <span class="mono">The-Summer-of-2026 题单</span>
+        <span class="spacer"></span>
+        <div class="langs" role="group" aria-label="题解语言" id="langs">
+          <button type="button" aria-pressed="true">Python</button>
+          <button type="button" aria-pressed="false">C</button>
+          <button type="button" aria-pressed="false">C++</button>
+          <button type="button" aria-pressed="false">Java</button>
+          <button type="button" aria-pressed="false">Rust</button>
+        </div>
+      </div>
+      <div class="totals">
+        <div class="mono" style="font-size: 13px; color: var(--text-2)">195 题 · 16 类</div>
+        <div class="totals-bar" aria-hidden="true">
+          <span class="e" style="flex: 102"></span><span class="m" style="flex: 80"></span><span class="h" style="flex: 13"></span>
+        </div>
+        <div class="legend"><span><i class="e"></i>简单 102</span><span><i class="m"></i>中等 80</span><span><i class="h"></i>困难 13</span></div>
+      </div>
+      <div class="map" id="map"></div>
+    </div>
+
+    <div class="board">
+      <div class="board-head">
+        <h3>语言入门</h3>
+        <span class="mono">2 门课</span>
+        <span class="spacer"></span>
+        <span class="mono">规划中</span>
+      </div>
+      <div class="pair">
+        <article class="course">
+          <div class="course-top"><h4>Python 入门</h4><span class="chip is-soon">8 章</span></div>
+          <p>每章一个知识点，用一道简单题演示怎么用。学完可以直接接上算法题。</p>
+          <pre><span class="k">def</span> <span class="f">kidsWithCandies</span>(candies, extra):
+    best = <span class="f">max</span>(candies)
+    <span class="k">return</span> [c + extra >= best <span class="k">for</span> c <span class="k">in</span> candies]</pre>
+          <ol><li>变量与字符串</li><li>条件与循环</li><li>列表与切片</li><li>字典与集合</li><li>函数</li><li>类</li></ol>
+        </article>
+        <article class="course">
+          <div class="course-top"><h4>C 语言入门</h4><span class="chip is-soon">10 章</span></div>
+          <p>从 gcc 编译第一行代码开始，到指针、结构体、动态内存，最后亲手写一个链表。</p>
+          <pre><span class="t">struct</span> <span class="t">ListNode</span> *<span class="f">reverseList</span>(<span class="t">struct</span> <span class="t">ListNode</span> *head) {
+    <span class="t">struct</span> <span class="t">ListNode</span> *prev = <span class="k">NULL</span>;
+    <span class="k">while</span> (head) { ... }</pre>
+          <ol><li>编译与运行</li><li>数组</li><li>函数</li><li>指针</li><li>结构体</li><li>malloc</li><li>链表</li></ol>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section wrap" aria-labelledby="proof-title">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow">核对</div>
+        <h2 id="proof-title">每一行都核对过</h2>
+      </div>
+      <p>教程里最怕的是讲错。这里引用的每一句文档、显示的每一行输出，都对照过出处。</p>
+    </div>
+    <div class="proof">
+      <div><b>51<small>处</small></b><p>引文逐字对照 PyTorch、Python 文档源文件和论文原文，附中文和链接。</p></div>
+      <div><b>6/6<small>章</small></b><p>终端里的输出，全部用真实的 PyTorch 运行过，逐行一致。</p></div>
+      <div><b>241<small>行</small></b><p>代码出自开源实现 hkproj/pytorch-transformer，改动处逐条注明。</p></div>
+    </div>
+  </section>
+
+  <footer class="wrap foot">
+    <span>逐字 · 翻页看代码</span>
+    <nav aria-label="来源">
+      <a href="https://github.com/hkproj/pytorch-transformer" target="_blank" rel="noopener">hkproj/pytorch-transformer</a>
+      <a href="https://arxiv.org/abs/1706.03762" target="_blank" rel="noopener">Attention Is All You Need</a>
+      <a href="https://github.com/YiFengZ17/The-Summer-of-2026/blob/main/Leetcode_sheet.md" target="_blank" rel="noopener">LeetCode 题单</a>
+      <a href="https://github.com/YiFengZ17/LLM-from-scratch-animation" target="_blank" rel="noopener">本项目</a>
+    </nav>
+  </footer>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ------------------------------------------------------------ 题单地图 */
+
+  // 题单里 16 类的题数和难度分布（简单、中等、困难），按题单原样统计
+  const TOPICS = [
+    ['哈希表与数组', 7, 2, 0],
+    ['双指针', 6, 4, 1],
+    ['滑动窗口', 3, 3, 1, 'next'],
+    ['前缀和与前后缀分解', 2, 2, 0],
+    ['二分查找', 7, 4, 1],
+    ['栈、队列与单调栈', 5, 3, 3],
+    ['链表与缓存设计', 8, 6, 0],
+    ['二叉树与二叉搜索树', 21, 9, 2],
+    ['堆与优先队列', 3, 4, 1],
+    ['图论', 5, 7, 0],
+    ['Trie 前缀树', 0, 1, 0],
+    ['回溯与枚举', 2, 8, 1],
+    ['动态规划', 7, 19, 3, 'soon'],
+    ['贪心、排序与区间', 9, 6, 0],
+    ['字符串与模拟', 4, 2, 0],
+    ['数学与位运算', 13, 0, 0],
+  ];
+
+  document.getElementById('map').innerHTML = TOPICS.map(([name, e, m, h, status], i) => {
+    const chip = status === 'next' ? '<span class="chip is-next">下一个上线</span>' : status === 'soon' ? '<span class="chip is-soon">随后</span>' : '<span>规划中</span>';
+    const cls = status === 'next' ? 'tile is-next' : status === 'soon' ? 'tile' : 'tile is-planned';
+    const seg = (n, c) => (n ? '<span class="' + c + '" style="flex:' + n + '"></span>' : '');
+    return (
+      '<div class="' + cls + '">' +
+      '<div class="tile-top"><span>' + String(i + 1).padStart(2, '0') + '</span>' + chip + '</div>' +
+      '<div class="tile-name">' + name + '</div>' +
+      '<div class="tile-foot"><div class="tile-bar" aria-hidden="true">' + seg(e, 'e') + seg(m, 'm') + seg(h, 'h') + '</div>' +
+      '<div class="tile-count">' + (e + m + h) + ' 题' + (h ? ' · ' + h + ' 困难' : '') + '</div></div></div>'
+    );
+  }).join('');
+
+  document.getElementById('langs').addEventListener('click', (ev) => {
+    const b = ev.target.closest('button');
+    if (!b) return;
+    ev.currentTarget.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  });
+
+  /* ------------------------------------------------- 背景：位置编码点阵 */
+
+  // 每个点就是位置表里的一个数：列是维度，行是位置。正值画暖色，负值画冷色，越接近 ±1 越大越亮。
+  // 位置随时间增加，波纹就向上流动；鼠标左右移动会让它稍微快一点或慢一点。
+  const cv = document.getElementById('field');
+  const ctx = cv.getContext('2d');
+  const GAP = 18;
+  let W = 0;
+  let H = 0;
+  let dpr = 1;
+  let t = 0;
+  let drift = 0;
+  let running = true;
+
+  function resize() {
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    W = cv.clientWidth;
+    H = cv.clientHeight;
+    cv.width = Math.round(W * dpr);
+    cv.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    const cols = Math.ceil(W / GAP);
+    const rows = Math.ceil(H / GAP);
+    const D = 96; // 把画面宽度当作 d_model = 96 来算频率
+    for (let c = 0; c < cols; c++) {
+      // 从右往左：最右边频率最高、条纹最密
+      const dim = (cols - 1 - c) % D;
+      const w = Math.exp(-(dim - (dim % 2)) * (Math.log(10000) / D));
+      for (let r = 0; r < rows; r++) {
+        const pos = (r * 0.42 + t) * 3;
+        const v = dim % 2 ? Math.cos(pos * w) : Math.sin(pos * w);
+        const a = Math.abs(v);
+        if (a < 0.12) continue;
+        ctx.globalAlpha = 0.08 + a * 0.42;
+        ctx.fillStyle = v > 0 ? '#ffb36b' : '#6aa8ff';
+        ctx.beginPath();
+        ctx.arc(c * GAP + GAP / 2, r * GAP + GAP / 2, 0.5 + a * 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  let last = 0;
+  function loop(now) {
+    if (running) {
+      const dt = Math.min(64, now - last || 16);
+      t += dt * 0.00012 * (1 + drift);
+      if (now - last > 33) {
+        draw();
+        last = now;
+      }
+    }
+    requestAnimationFrame(loop);
+  }
+
+  window.addEventListener('resize', () => {
+    resize();
+    draw();
+  });
+  window.addEventListener('pointermove', (e) => {
+    drift = (e.clientX / window.innerWidth - 0.5) * 1.6;
+  });
+  // 首屏滚出视野时停下，省电
+  new IntersectionObserver((entries) => (running = entries[0].isIntersecting)).observe(cv);
+
+  resize();
+  t = 7.3;
+  draw();
+  if (!reduced) requestAnimationFrame(loop);
+
+  /* ------------------------------------------------------------ 代码样片 */
+
+  // 一个很小的语法高亮：只认关键字、类型、函数调用、字符串、数字和注释，够样片用
+  const KW = {
+    python: 'def return for in if else while not and or is None True False import from class self',
+    rust: 'impl pub fn let mut for in while if else return as struct use self',
+    cpp: 'for while if else return int char bool auto const class public',
+    java: 'public private class for while if else return int double new static',
+  };
+  const TYPES = {
+    python: '',
+    rust: 'i32 usize Vec Self Solution usize::MAX',
+    cpp: 'string vector',
+    java: 'Math',
+  };
+
+  function highlight(line, lang) {
+    const kw = new Set(KW[lang].split(' '));
+    const ty = new Set(TYPES[lang].split(' '));
+    return line.replace(/(#.*$|\/\/.*$)|("[^"]*"|'[^']*')|(\b\d+(?:\.\d+)?\b)|([A-Za-z_]\w*)(\s*\()?/g, (m, com, str, num, id, call) => {
+      if (com) return '<span class="c">' + com + '</span>';
+      if (str) return '<span class="s">' + str + '</span>';
+      if (num) return '<span class="n">' + num + '</span>';
+      if (kw.has(id)) return '<span class="k">' + id + '</span>' + (call || '');
+      if (ty.has(id) || /^[A-Z]/.test(id)) return '<span class="t">' + id + '</span>' + (call || '');
+      if (call) return '<span class="f">' + id + '</span>' + call;
+      return id;
+    });
+  }
+
+  const SNIPPETS = [
+    {
+      file: 'model.py',
+      lang: 'python',
+      course: '从零手写 Transformer · 第 2 章',
+      say: '按前置知识里的公式写出来：减平均值、除以标准差，再缩放和平移。',
+      code: [
+        'class LayerNormalization(nn.Module):',
+        '',
+        '    def forward(self, x):',
+        '        # x: (batch, seq_len, hidden_size)',
+        '        mean = x.mean(dim=-1, keepdim=True)',
+        '        std = x.std(dim=-1, keepdim=True)',
+        '        return self.alpha * (x - mean) / (std + self.eps) + self.bias',
+      ],
+    },
+    {
+      file: 'main.rs',
+      lang: 'rust',
+      course: '滑动窗口 · 209 长度最小的子数组',
+      say: '右端每走一步，就把一个数加进窗口；和够了，就从左端收缩，边缩边记最短长度。',
+      code: [
+        'impl Solution {',
+        '    pub fn min_sub_array_len(target: i32, nums: Vec<i32>) -> i32 {',
+        '        let (mut left, mut sum, mut best) = (0, 0, usize::MAX);',
+        '        for right in 0..nums.len() {',
+        '            sum += nums[right];',
+        '            while sum >= target {',
+        '                best = best.min(right - left + 1);',
+        '                sum -= nums[left];',
+        '                left += 1;',
+        '            }',
+        '        }',
+        '        if best == usize::MAX { 0 } else { best as i32 }',
+        '    }',
+        '}',
+      ],
+    },
+    {
+      file: 'solution.cpp',
+      lang: 'cpp',
+      course: '滑动窗口 · 3 无重复字符的最长子串',
+      say: '一个字符第二次出现时，从左边收缩窗口，直到它只剩一个。',
+      code: [
+        'int lengthOfLongestSubstring(string s) {',
+        '    int cnt[128] = {0}, left = 0, best = 0;',
+        '    for (int right = 0; right < s.size(); right++) {',
+        '        cnt[s[right]]++;',
+        '        while (cnt[s[right]] > 1) cnt[s[left++]]--;',
+        '        best = max(best, right - left + 1);',
+        '    }',
+        '    return best;',
+        '}',
+      ],
+    },
+    {
+      file: 'Main.java',
+      lang: 'java',
+      course: '滑动窗口 · 643 子数组最大平均数 I',
+      say: '窗口右移一格：进来一个数，出去一个数，和只要改两处。',
+      code: [
+        'public double findMaxAverage(int[] nums, int k) {',
+        '    int sum = 0;',
+        '    for (int i = 0; i < k; i++) sum += nums[i];',
+        '    int best = sum;',
+        '    for (int i = k; i < nums.length; i++) {',
+        '        sum += nums[i] - nums[i - k];',
+        '        best = Math.max(best, sum);',
+        '    }',
+        '    return (double) best / k;',
+        '}',
+      ],
+    },
+  ];
+
+  const el = {
+    file: document.getElementById('spec-file'),
+    course: document.getElementById('spec-course'),
+    code: document.getElementById('spec-code'),
+    say: document.getElementById('spec-say'),
+    progress: document.getElementById('spec-progress'),
+  };
+
+  const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;' };
+  const esc = (s) => s.replace(/[&<>]/g, (c) => ESC[c]);
+
+  let si = 0;
+  let shown = 0;
+  let timer = null;
+
+  function render(snippet, count) {
+    const full = snippet.code.join('\n');
+    const text = full.slice(0, count);
+    const lines = text.split('\n');
+    const cur = lines.length - 1;
+    el.code.innerHTML = snippet.code
+      .map((_, i) => {
+        const part = i < lines.length ? lines[i] : '';
+        const body = highlight(esc(part), snippet.lang) + (i === cur ? '<span class="caret"></span>' : '');
+        return '<div class="spec-line' + (i === cur ? ' is-cur' : '') + '"><span class="ln">' + (i + 1) + '</span><span>' + body + '</span></div>';
+      })
+      .join('');
+    el.progress.style.width = (count / full.length) * 100 + '%';
+  }
+
+  function show(i, startAt) {
+    const s = SNIPPETS[i];
+    el.file.textContent = s.file;
+    el.course.textContent = s.course;
+    el.say.textContent = s.say;
+    shown = startAt || 0;
+    render(s, shown);
+  }
+
+  function tick() {
+    const s = SNIPPETS[si];
+    const full = s.code.join('\n');
+    if (shown < full.length) {
+      // 一次一个字符；换行后连同缩进一起出现，像编辑器自动缩进
+      shown++;
+      if (full[shown - 1] === '\n') while (full[shown] === ' ') shown++;
+      render(s, shown);
+      const ch = full[shown - 1];
+      timer = setTimeout(tick, ch === '\n' ? 260 : 28 + Math.random() * 34);
+    } else {
+      timer = setTimeout(() => {
+        si = (si + 1) % SNIPPETS.length;
+        show(si, 0);
+        timer = setTimeout(tick, 500);
+      }, 2600);
+    }
+  }
+
+  // 第一帧就有代码：从第二段样片的一大半开始播
+  si = 1;
+  show(si, reduced ? Infinity : Math.floor(SNIPPETS[1].code.join('\n').length * 0.62));
+  if (!reduced) timer = setTimeout(tick, 900);
+})();
+</script>
+</body>
+</html>
